@@ -1,4 +1,4 @@
-.PHONY: setup data index search test test-ollama lint fmt check
+.PHONY: setup data index search serve test test-ollama lint fmt check
 
 setup:            ## create the venv and install everything for development
 	uv venv --python 3.12
@@ -13,6 +13,9 @@ index:            ## build the Qdrant index from data/kb (needs Ollama)
 
 search:           ## make search q="how long do UPI refunds take"
 	.venv/bin/python -m redline.kb.search "$(q)"
+
+serve:            ## the support agent API on 127.0.0.1:8000 (needs Ollama; rebuilds the index at startup)
+	.venv/bin/uvicorn redline.api:app --host 127.0.0.1 --port 8000
 
 test:
 	.venv/bin/pytest -q
