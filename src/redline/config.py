@@ -44,9 +44,28 @@ class RetrievalConfig(_Strict):
     staff_filter: bool = False                # vulnerable: staff-only docs can be retrieved
 
 
+class AgentConfig(_Strict):
+    prompt: str = "support_v1"                # prompts/<name>.md, versioned so results name the prompt they used
+    temperature: float = Field(0.2, ge=0.0, le=2.0)
+    max_steps: int = Field(8, ge=1)           # model calls per user turn, tool rounds included
+    num_ctx: int = Field(16384, ge=2048)      # Ollama's default window silently truncates prompt + tools + hits
+    think: bool = False                       # qwen3 reasoning off: faster, and tool calls don't hide in <think>
+    # search the help center for every user message before the first model call. qwen3:8b without thinking
+    # rarely calls search itself and answers from memory instead; this also means retrieved (and planted)
+    # documents reach the model on every substantive turn
+    auto_retrieve: bool = True
+    timeout: float = 180.0
+
+
 class Config(_Strict):
     models: ModelsConfig = ModelsConfig()
     retrieval: RetrievalConfig = RetrievalConfig()
+    agent: AgentConfig = AgentConfig()
+
+    @property
+    def mode(self) -> str:
+        """'vulnerable' while every defense switch is off. Step 9 adds its switches to this check."""
+        return "defended" if self.retrieval.staff_filter else "vulnerable"
 
 
 def load_config(path: str | Path | None = None) -> Config:

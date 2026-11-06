@@ -19,3 +19,12 @@ retrieval:
   reranker_model: Xenova/ms-marco-MiniLM-L-6-v2
   index_metadata: true    # metadata is indexed text: an attack surface on purpose
   staff_filter: false     # permission defense; off means staff docs are retrievable
+
+agent:
+  prompt: support_v1
+  temperature: 0.2
+  max_steps: 8
+  num_ctx: 16384
+  think: false
+  auto_retrieve: true     # retrieved docs reach the model every turn (RAG); see config.py
+  timeout: 180.0
