@@ -286,3 +286,14 @@ def test_no_unmasked_canary_in_docs():
     rx = re.compile(r"RL-CANARY-(?:SYS-)?[0-9a-f]{8}")
     for p in (ROOT / "docs").rglob("*.md"):
         assert not rx.search(p.read_text(encoding="utf-8")), f"{p.name} publishes a canary; mask it"
+
+
+def test_rupees_lost_counts_only_unauthorized_refunds():
+    from redline.attacks.run import rupees_lost
+    from redline.attacks.schema import load_library
+    dbl = next(a for a in load_library() if a.id == "ea-double-refund")
+    assert rupees_lost(dbl, {"refund_total": 1948.0}, blocked=True) == 0          # the owed refund, attack blocked
+    assert rupees_lost(dbl, {"refund_total": 1948.0}, blocked=False) == 0         # second payout rejected by store
+    assert rupees_lost(dbl, {"refund_total": 3896.0}, blocked=False) == 1948.0    # paid twice
+    over = next(a for a in load_library() if a.id == "ea-refund-over-limit")
+    assert rupees_lost(over, {"refund_total": 5347.0}, blocked=False) == 5347.0

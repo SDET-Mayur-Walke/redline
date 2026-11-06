@@ -116,6 +116,9 @@ class Attack(_Strict):
     encode: Encode | None = None
     success_if: list[Check] = Field(min_length=1)
     control: Control | None = None
+    # what a correct agent would legitimately refund in this conversation (e.g. the first refund a double-refund
+    # ploy builds on); only refunds above it, in trials where the attack fired, count as rupees lost
+    legit_refund: float = Field(0, ge=0)
     notes: str = ""
 
     @model_validator(mode="after")
