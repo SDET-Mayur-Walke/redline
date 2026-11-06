@@ -45,7 +45,7 @@ class RetrievalConfig(_Strict):
 
 
 class AgentConfig(_Strict):
-    prompt: str = "support_v1"                # prompts/<name>.md, versioned so results name the prompt they used
+    prompt: str = "support_v2"                # prompts/<name>.md, versioned so results name the prompt they used
     temperature: float = Field(0.2, ge=0.0, le=2.0)
     max_steps: int = Field(8, ge=1)           # model calls per user turn, tool rounds included
     num_ctx: int = Field(16384, ge=2048)      # Ollama's default window silently truncates prompt + tools + hits

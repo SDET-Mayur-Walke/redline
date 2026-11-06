@@ -87,7 +87,8 @@ class TurnResult:
 class Conversation:
     """Everything one session has done, across turns: maps onto agentproof's Transcript."""
     session: Session
-    turns: list[dict] = field(default_factory=list)          # user/assistant text only
+    turns: list[dict] = field(default_factory=list)          # {"role", "content"}; assistant turns also list
+                                                             # the tools called in that turn, in order
     tool_calls: list[ToolCall] = field(default_factory=list)
     usage: dict = field(default_factory=lambda: {"prompt_tokens": 0, "completion_tokens": 0, "llm_calls": 0,
                                                  "latency_s": 0.0})
@@ -189,7 +190,7 @@ class Agent:
                 s.messages.append({"role": "tool", "tool_call_id": c.id, "name": c.name, "content": to_json(result)})
 
         s.messages.append({"role": "assistant", "content": reply})
-        conv.turns.append({"role": "assistant", "content": reply})
+        conv.turns.append({"role": "assistant", "content": reply, "tool_calls": [c.name for c in calls]})
         conv.tool_calls += calls
         for k, v in usage.items():
             conv.usage[k] += v

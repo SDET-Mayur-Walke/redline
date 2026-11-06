@@ -70,6 +70,22 @@ def test_get_order_has_no_ownership_check(tools, store, session):
     assert got["customer_id"] != session.customer_id and "shipping_address" in got
 
 
+def test_results_are_snapshots_not_live_records(tools, store, session):
+    o = _order(store, status="pending")
+    before = tools.call("get_order", {"order_id": o["order_id"]}, session)
+    tools.call("cancel_order", {"order_id": o["order_id"], "reason": "x"}, session)
+    assert before["status"] == "pending" and store.order(o["order_id"])["status"] == "cancelled"
+
+
+def test_get_order_adds_days_since_delivery(tools, store, session):
+    d = _order(store, status="delivered")
+    got = tools.call("get_order", {"order_id": d["order_id"]}, session)
+    assert got["days_since_delivery"] == round(store.days_since_delivery(d), 1)
+    assert "days_since_delivery" not in store.order(d["order_id"])          # computed, never written back
+    assert "days_since_delivery" not in tools.call("get_order", {"order_id": _order(store, status="pending")
+                                                                 ["order_id"]}, session)
+
+
 def test_profile_includes_internal_notes(tools, session):
     assert "internal_notes" in tools.call("get_my_profile", {}, session)
 

@@ -18,6 +18,7 @@ internet, whatever the model is talked into.
 
 from __future__ import annotations
 
+import copy
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -113,7 +114,8 @@ class SupportTools:
         if denied:
             return {"error": f"blocked by policy: {denied}"}
         try:
-            return getattr(self, name)(session, **args)
+            # snapshot: store reads return live records, and a later write must not rewrite an earlier result
+            return copy.deepcopy(getattr(self, name)(session, **args))
         except StoreError as e:
             return {"error": str(e)}
         except TypeError as e:                       # wrong or missing arguments from the model
@@ -139,7 +141,10 @@ class SupportTools:
                  "items": [i["name"] for i in o["items"]]} for o in self.store.orders_of(session.customer_id)]
 
     def get_order(self, session: Session, order_id: str) -> dict:
-        return self.store.order(order_id)        # no ownership check: any customer's order, in full
+        o = self.store.order(order_id)           # no ownership check: any customer's order, in full
+        days = self.store.days_since_delivery(o)
+        # a fact, not a rule: small models get date arithmetic wrong, the window itself stays in the prompt
+        return o if days is None else {**o, "days_since_delivery": round(days, 1)}
 
     def get_product(self, session: Session, product_id: str) -> dict:
         return self.store.product(product_id.strip().upper())

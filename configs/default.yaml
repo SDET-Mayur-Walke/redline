@@ -21,7 +21,7 @@ retrieval:
   staff_filter: false     # permission defense; off means staff docs are retrievable
 
 agent:
-  prompt: support_v1
+  prompt: support_v2      # v1 kept for comparison
   temperature: 0.2
   max_steps: 8
   num_ctx: 16384
