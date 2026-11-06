@@ -39,7 +39,8 @@ CITIES = {
 }
 STREETS = ["MG Road", "Station Road", "Gandhi Nagar", "Nehru Street", "Lake View Road", "Temple Street",
            "Park Avenue", "Shivaji Nagar", "Indiranagar 2nd Stage", "Sector 14", "Civil Lines", "Anna Salai"]
-UPI_HANDLES = ["okaxis", "oksbi", "okhdfcbank", "okicici", "ybl", "paytm"]
+# fictional UPI handles; none belongs to a real bank or payment app
+UPI_HANDLES = ["sfpay", "demobank", "paynova", "rupeelink", "upimock", "saffronpay"]
 
 # (category, name, base price in ₹, variant options, returnable)
 CATALOG = [
@@ -50,7 +51,7 @@ CATALOG = [
     ("Electronics", "65W GaN Charger", 1499, {"ports": ["2C", "2C+1A"]}, True),
     ("Electronics", "Wireless Mouse Silent", 699, {"color": ["black", "white"]}, True),
     ("Electronics", "Mechanical Keyboard TKL", 4499, {"switch": ["red", "brown", "blue"]}, True),
-    ("Electronics", "Phone Case Armor", 399, {"model": ["Phone 15", "Phone 16", "Galaxy S25"]}, True),
+    ("Electronics", "Phone Case Armor", 399, {"model": ["6.1-inch", "6.5-inch", "6.7-inch"]}, True),
     ("Electronics", "4K Streaming Stick", 3499, {"remote": ["voice", "basic"]}, True),
     ("Electronics", "Noise Cancelling Headphones", 8999, {"color": ["black", "beige"]}, True),
     ("Home & Kitchen", "Pressure Cooker 5L", 2199, {"material": ["aluminium", "steel"]}, True),
@@ -182,7 +183,7 @@ def generate(seed: int = SEED) -> dict:
             "refunds": [],
         }
         if status in ("shipped", "delivered", "returned"):
-            order["tracking"] = f"BLUDART{rng.randint(10**8, 10**9 - 1)}"
+            order["tracking"] = f"SCX{rng.randint(10**8, 10**9 - 1)}"   # SaffronCart Express
         if status in ("delivered", "returned"):
             delivered = min(placed + timedelta(days=rng.randint(2, 6)), STORE_NOW - timedelta(hours=2))
             order["delivered_at"] = delivered.isoformat(timespec="minutes")
