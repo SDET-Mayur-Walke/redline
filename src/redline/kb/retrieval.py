@@ -7,6 +7,9 @@ filtering late is how many real systems leak, which is the point.
 
 Attacks plant content through `add_documents(..., source="planted")`; `reset()`
 removes it again so every trial starts from the clean corpus.
+
+With the ingestion scanner on (defenses/scanner.py), every chunk is screened before it is
+embedded; a quarantined chunk is never indexed and is listed in `quarantined` with its reasons.
 """
 
 from __future__ import annotations
@@ -17,6 +20,7 @@ from typing import Literal
 from qdrant_client import QdrantClient, models
 
 from redline.config import Config, RetrievalConfig, resolve
+from redline.defenses.scanner import IngestionScanner
 from redline.kb.corpus import Document
 from redline.kb.encoders import DenseEncoder, Reranker, SparseEncoder
 from redline.kb.ingest import Chunk, chunk_documents, slug
@@ -43,24 +47,29 @@ class Hit:
 
 class Retriever:
     def __init__(self, cfg: RetrievalConfig, dense: DenseEncoder, sparse: SparseEncoder,
-                 reranker: Reranker | None = None, client: QdrantClient | None = None):
+                 reranker: Reranker | None = None, client: QdrantClient | None = None,
+                 scanner: IngestionScanner | None = None):
         self.cfg, self.dense, self.sparse, self.reranker = cfg, dense, sparse, reranker
         self.client = client or _client(cfg.qdrant_path)
+        self.scanner = scanner
+        self.quarantined: list[dict] = []     # {"chunk_id", "origin", "reasons"} for every held-back chunk
 
     @classmethod
     def from_config(cls, cfg: Config) -> Retriever:
         """Real models: Ollama embeddings, fastembed BM25 and (if enabled) a fastembed cross-encoder."""
         from redline.kb.encoders import FastembedBM25, FastembedCrossEncoder, OllamaEmbedder
 
-        r = cfg.retrieval
+        r, d = cfg.retrieval, cfg.defenses
         return cls(r, OllamaEmbedder(cfg.models.embed, cfg.models.ollama_base_url, r.embed_batch),
-                   FastembedBM25(r.sparse_model), FastembedCrossEncoder(r.reranker_model) if r.rerank else None)
+                   FastembedBM25(r.sparse_model), FastembedCrossEncoder(r.reranker_model) if r.rerank else None,
+                   scanner=IngestionScanner(d.egress_allowlist) if d.ingestion_scanner else None)
 
     # ----- indexing -----
 
     def rebuild(self, docs: list[Document]) -> int:
         """Drop the collection and index `docs` from scratch. Returns the number of chunks."""
-        chunks = chunk_documents(docs, self.cfg.chunk_tokens, self.cfg.max_chunk_tokens)
+        self.quarantined = []
+        chunks = self._screen(chunk_documents(docs, self.cfg.chunk_tokens, self.cfg.max_chunk_tokens), BASE_ORIGIN)
         dense = self.dense.embed_documents([c.indexed_text(self.cfg.index_metadata) for c in chunks])
         if self.client.collection_exists(self.cfg.collection):
             self.client.delete_collection(self.cfg.collection)
@@ -77,17 +86,32 @@ class Retriever:
         separately from the doc's own metadata["source"], so a planted doc can still claim to be a help article."""
         if source == BASE_ORIGIN:
             raise ValueError(f"origin {BASE_ORIGIN!r} is reserved for the base corpus")
-        chunks = chunk_documents(docs, self.cfg.chunk_tokens, self.cfg.max_chunk_tokens)
-        self._upsert(chunks, source)
+        chunks = self._screen(chunk_documents(docs, self.cfg.chunk_tokens, self.cfg.max_chunk_tokens), source)
+        if chunks:
+            self._upsert(chunks, source)
         return [c.chunk_id for c in chunks]
 
     def reset(self) -> None:
         """Remove everything added through add_documents; the base corpus stays."""
         self.client.delete(self.cfg.collection, points_selector=models.FilterSelector(filter=models.Filter(
             must_not=[models.FieldCondition(key="origin", match=models.MatchValue(value=BASE_ORIGIN))])))
+        self.quarantined = [q for q in self.quarantined if q["origin"] == BASE_ORIGIN]
 
     def count(self) -> int:
         return self.client.count(self.cfg.collection).count
+
+    def _screen(self, chunks: list[Chunk], origin: str) -> list[Chunk]:
+        """Drop the chunks the ingestion scanner quarantines (all of them pass when it is off)."""
+        if self.scanner is None:
+            return chunks
+        kept = []
+        for c in chunks:
+            v = self.scanner.scan_chunk(c)
+            if v.quarantined:
+                self.quarantined.append({"chunk_id": c.chunk_id, "origin": origin, "reasons": list(v.reasons)})
+            else:
+                kept.append(c)
+        return kept
 
     def _upsert(self, chunks: list[Chunk], origin: str, dense: list[list[float]] | None = None) -> None:
         texts = [c.indexed_text(self.cfg.index_metadata) for c in chunks]
