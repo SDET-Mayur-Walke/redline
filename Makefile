@@ -1,4 +1,4 @@
-.PHONY: setup data index search serve sink test test-ollama lint fmt check gate
+.PHONY: setup data index search serve sink demo demo-stub test test-ollama lint fmt check gate
 
 setup:            ## create the venv and install everything for development
 	uv venv --python 3.12
@@ -19,6 +19,15 @@ serve:            ## the support agent API on 127.0.0.1:8000 (needs Ollama; rebu
 
 sink:             ## the exfil sink, an attacker's request logger, on 127.0.0.1:8765
 	.venv/bin/python -m redline.sink
+
+DEMO = .venv/bin/streamlit run src/redline/demo/app.py --server.address 127.0.0.1 --server.port 8501 \
+	--browser.gatherUsageStats false
+
+demo:             ## the Streamlit demo on 127.0.0.1:8501, vulnerable vs hardened (needs Ollama; run make sink too)
+	REDLINE_DEMO_MODEL=ollama $(DEMO)
+
+demo-stub:        ## the demo offline: the CI gate's stub model and configs, no Ollama
+	REDLINE_DEMO_MODEL=stub $(DEMO)
 
 test:
 	.venv/bin/pytest -q
