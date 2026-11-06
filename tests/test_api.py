@@ -114,3 +114,29 @@ def test_adapter_keeps_partial_transcript_on_crash(kb_retriever):
     t = asyncio.run(fn(Task(id="x", input="hi", graders=[], followups=["again"])))
     assert t.error == "RuntimeError: model went away" and t.final_output == "first answer"
     assert t.outcome is not None
+
+
+# ----- dev-only scanner hooks -----
+
+def test_dev_endpoints_are_off_by_default(client):
+    c, _ = client
+    assert c.post("/dev/rag/ask", json={"query": "hi"}).status_code == 404
+    assert c.post("/dev/rag/documents", json={"documents": ["x"]}).status_code == 404
+    assert c.post("/dev/rag/reset", json={}).status_code == 404
+
+
+def test_dev_endpoints_plant_ask_and_reset(kb_retriever):
+    cfg = _cfg().model_copy(update={"dev_endpoints": True})
+    with TestClient(create_app(cfg=cfg, retriever=kb_retriever, llm=ScriptedLLM("an answer"))) as c:
+        r = c.post("/dev/rag/documents", json={"documents": ["Zqxwv policy\nzqxwv zqxwv token"]}).json()
+        assert r["planted"] == ["dev-plant-1"]
+        assert any(h.doc_id == "dev-plant-1" for h in kb_retriever.search("zqxwv"))
+        assert c.post("/dev/rag/ask", json={"query": "what is zqxwv?"}).json()["answer"] == "an answer"
+        assert c.post("/dev/rag/reset", json={}).json() == {"status": "reset"}
+        assert not any(h.doc_id == "dev-plant-1" for h in kb_retriever.search("zqxwv"))
+
+
+def test_dev_scanner_config_is_the_only_one_with_dev_endpoints():
+    from redline.config import ROOT, load_config
+    on = {p.name for p in (ROOT / "configs").glob("*.yaml") if load_config(p).dev_endpoints}
+    assert on == {"dev_scanners.yaml"}

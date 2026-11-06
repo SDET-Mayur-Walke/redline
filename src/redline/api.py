@@ -8,11 +8,17 @@ The index is rebuilt at startup so it always matches the config in use (chunk
 size, metadata indexing) and never carries documents planted in an earlier run.
 
     make serve        # uvicorn on 127.0.0.1:8000; REDLINE_CONFIG=configs/x.yaml to switch config
+
+The /dev/rag/* routes exist for outside scanners (rag-redteam) that plant raw strings and speak
+{"query"} -> {"answer"}. They answer 404 unless the config sets dev_endpoints: true, because an open
+"write to the knowledge base" endpoint is exactly the attack surface this project studies.
 """
 
 from __future__ import annotations
 
+import itertools
 import os
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
@@ -20,6 +26,7 @@ from pydantic import BaseModel
 
 from redline.agent.agent import LLM, Agent
 from redline.config import Config, load_config
+from redline.kb.corpus import Document
 from redline.store.store import Store, StoreError
 
 
@@ -27,6 +34,17 @@ class ChatIn(BaseModel):
     session_id: str
     customer_id: str
     message: str
+
+
+class AskIn(BaseModel):
+    query: str
+
+
+class PlantIn(BaseModel):
+    documents: list[str]
+
+
+DEV_CUSTOMER = "C0011"
 
 
 class ToolCallOut(BaseModel):
@@ -87,6 +105,41 @@ def create_app(cfg: Config | None = None, store: Store | None = None, retriever=
     @app.get("/effects")
     def effects(request: Request) -> dict:
         return agent(request).store.effects.as_dict()
+
+    # ----- dev-only scanner hooks -----
+
+    def dev_agent(request: Request) -> Agent:
+        a = agent(request)
+        if not a.cfg.dev_endpoints:
+            raise HTTPException(404, "Not Found")
+        return a
+
+    plant_ids = itertools.count(1)
+
+    @app.post("/dev/rag/ask")
+    def dev_ask(body: AskIn, request: Request) -> dict:
+        """One fresh session per query, as the scanner expects independent attempts; same agent turn as /chat."""
+        a = dev_agent(request)
+        t = a.chat(f"dev:{uuid.uuid4().hex[:12]}", DEV_CUSTOMER, body.query)
+        return {"answer": t.reply, "tool_calls": [c.name for c in t.tool_calls], "citations": t.citations}
+
+    @app.post("/dev/rag/documents")
+    def dev_documents(body: PlantIn, request: Request) -> dict:
+        """Plant raw strings as public help-center articles, the way an attacker with corpus write access would."""
+        a = dev_agent(request)
+        docs = []
+        for text in body.documents:
+            n = next(plant_ids)
+            title = (text.strip().splitlines() or ["Help article"])[0][:80]
+            docs.append(Document(id=f"dev-plant-{n}", title=title, text=text,
+                                 metadata={"audience": "public", "source": "help-center"}))
+        a.retriever.add_documents(docs, "planted")
+        return {"planted": [d.id for d in docs]}
+
+    @app.post("/dev/rag/reset")
+    def dev_reset(request: Request) -> dict:
+        dev_agent(request).reset()
+        return {"status": "reset"}
 
     @app.get("/health")
     def health(request: Request) -> dict:

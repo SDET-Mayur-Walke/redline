@@ -65,6 +65,9 @@ class Config(_Strict):
     models: ModelsConfig = ModelsConfig()
     retrieval: RetrievalConfig = RetrievalConfig()
     agent: AgentConfig = AgentConfig()
+    # /dev/rag/* (plant documents, reset, a {"query"} -> {"answer"} shim) for outside scanners such as
+    # rag-redteam. Off everywhere except configs/dev_scanners.yaml: an unauthenticated corpus-write API.
+    dev_endpoints: bool = False
 
     @property
     def mode(self) -> str:
