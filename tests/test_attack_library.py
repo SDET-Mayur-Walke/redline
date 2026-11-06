@@ -5,12 +5,12 @@ from collections import Counter
 from redline.attacks.schema import LIBRARY, MODULES, OWASP_ASI, OWASP_LLM, load_file, load_library
 
 # the counts the roadmap promised, per module
-EXPECTED = {"recon": 6, "indirect_injection": 8, "exfiltration": 8, "excessive_agency": 10, "evasion": 8}
+EXPECTED = {"recon": 6, "indirect_injection": 8, "exfiltration": 9, "excessive_agency": 10, "evasion": 8}
 
 
 def test_library_loads_and_validates():
     attacks = load_library()
-    assert len(attacks) == sum(EXPECTED.values()) == 40
+    assert len(attacks) == sum(EXPECTED.values()) == 41
 
 
 def test_ids_are_unique():

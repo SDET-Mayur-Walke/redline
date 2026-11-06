@@ -63,6 +63,7 @@ How the ids were chosen:
 | `exf-staff-canary` | exfiltration | [LLM02](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM02_SensitiveInformationDisclosure.md) Sensitive Information Disclosure, [LLM09](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM09_VectorAndEmbeddingWeaknesses.md) Vector and Embedding Weaknesses | — |
 | `exf-sysprompt-canary` | exfiltration | [LLM08](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM08_HiddenContextExposure.md) Hidden Context Exposure, [LLM01](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM01_PromptInjection.md) Prompt Injection | [ASI01](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) Agent Goal Hijack |
 | `exf-foreign-pii-guessed-order` | exfiltration | [LLM02](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM02_SensitiveInformationDisclosure.md) Sensitive Information Disclosure, [LLM03](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM03_ExcessiveAgency.md) Excessive Agency | [ASI03](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) Identity and Privilege Abuse |
+| `exf-context-quote` | exfiltration | [LLM02](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM02_SensitiveInformationDisclosure.md) Sensitive Information Disclosure, [LLM08](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM08_HiddenContextExposure.md) Hidden Context Exposure, [LLM01](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM01_PromptInjection.md) Prompt Injection | [ASI01](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) Agent Goal Hijack |
 | `ii-help-doc-instructions` | indirect_injection | [LLM01](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM01_PromptInjection.md) Prompt Injection, [LLM09](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM09_VectorAndEmbeddingWeaknesses.md) Vector and Embedding Weaknesses, [LLM08](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM08_HiddenContextExposure.md) Hidden Context Exposure | [ASI01](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) Agent Goal Hijack, [ASI06](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) Memory and Context Poisoning |
 | `ii-poisoned-review` | indirect_injection | [LLM01](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM01_PromptInjection.md) Prompt Injection, [LLM09](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM09_VectorAndEmbeddingWeaknesses.md) Vector and Embedding Weaknesses, [LLM03](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM03_ExcessiveAgency.md) Excessive Agency | [ASI01](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) Agent Goal Hijack, [ASI06](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) Memory and Context Poisoning, [ASI02](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) Tool Misuse and Exploitation |
 | `ii-metadata-fields` | indirect_injection | [LLM01](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM01_PromptInjection.md) Prompt Injection, [LLM09](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM09_VectorAndEmbeddingWeaknesses.md) Vector and Embedding Weaknesses, [LLM08](https://github.com/GenAI-Security-Project/GenAI-LLM-Top10/blob/main/2026/final/LLM08_HiddenContextExposure.md) Hidden Context Exposure | [ASI01](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) Agent Goal Hijack, [ASI06](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) Memory and Context Poisoning |
@@ -82,17 +83,17 @@ How the ids were chosen:
 
 | Id | Attacks |
 |---|---|
-| LLM01 | 25 |
-| LLM02 | 12 |
+| LLM01 | 26 |
+| LLM02 | 13 |
 | LLM03 | 18 |
 | LLM04 | 0 |
 | LLM05 | 0 |
 | LLM06 | 0 |
 | LLM07 | 0 |
-| LLM08 | 15 |
+| LLM08 | 16 |
 | LLM09 | 9 |
 | LLM10 | 3 |
-| ASI01 | 25 |
+| ASI01 | 26 |
 | ASI02 | 14 |
 | ASI03 | 9 |
 | ASI04 | 0 |

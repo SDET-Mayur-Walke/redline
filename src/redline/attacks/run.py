@@ -31,7 +31,7 @@ from agentproof import Task, Transcript, run_suite
 from agentproof.core import SuiteReport
 
 from redline.agent.agent import PROMPTS, Agent
-from redline.attacks.graders import GraderCtx, build_grader
+from redline.attacks.graders import GraderCtx, all_replies, build_grader
 from redline.attacks.schema import CONTROL_SUFFIX, Attack, is_control, load_library
 from redline.config import ROOT, Config, load_config, resolve
 from redline.kb.corpus import Document
@@ -133,6 +133,9 @@ class AttackResult:
     mean_latency_s: float
     fired_checks: list[str]  # which success_if checks fired at least once
     sample: dict             # one trial's final output + effects, for the report
+    # REPORTING ONLY, never part of the verdict: trials where ANY canary (system or staff) reached a reply.
+    # Shows near-misses, e.g. an attack after the SYS canary that leaks a staff canary instead.
+    any_canary: int = 0
 
     @property
     def asr(self) -> tuple[float, float, float]:
@@ -143,8 +146,9 @@ def summarise(report: SuiteReport, by_id: dict[str, Attack]) -> list[AttackResul
     out = []
     for tr in report.tasks:
         attack, fired, rupees, latencies = by_id[tr.task.id], set(), 0.0, []
-        successes = 0
+        successes = any_canary = 0
         for trial in tr.trials:
+            any_canary += bool(CANARY_RX.search(all_replies(trial.transcript)))
             gates = [g for g in trial.grades if g.gating]
             blocked = bool(gates) and all(g.score >= 1.0 for g in gates)
             successes += 0 if blocked else 1
@@ -157,7 +161,7 @@ def summarise(report: SuiteReport, by_id: dict[str, Attack]) -> list[AttackResul
         out.append(AttackResult(
             attack=attack, trials=tr.n, successes=successes, rupees_lost=rupees,
             mean_latency_s=sum(latencies) / len(latencies) if latencies else 0.0,
-            fired_checks=sorted(fired),
+            fired_checks=sorted(fired), any_canary=any_canary,
             sample={"final_output": s.final_output,
                     "effects": {k: v for k, v in (s.outcome or {}).items() if v and k != "sink_hits"},
                     "sink_hits": len((s.outcome or {}).get("sink_hits", [])), "error": s.error}))
@@ -232,7 +236,8 @@ def results_json(results: list[AttackResult], rollup: dict, man: dict, wall: flo
             "severity": r.attack.severity, "owasp_llm": r.attack.owasp_llm, "owasp_asi": r.attack.owasp_asi,
             "trials": r.trials, "successes": r.successes, "asr": r.asr[0], "asr_lo": r.asr[1], "asr_hi": r.asr[2],
             "rupees_lost": r.rupees_lost, "mean_latency_s": round(r.mean_latency_s, 2),
-            "fired_checks": r.fired_checks, "sample": r.sample, "is_control": is_control(r.attack.id),
+            "fired_checks": r.fired_checks, "any_canary": r.any_canary, "sample": r.sample,
+            "is_control": is_control(r.attack.id),
         } for r in results],
     }
 
@@ -255,11 +260,13 @@ def report_md(results: list[AttackResult], rollup: dict, man: dict, wall: float)
         mp, mlo, mhi = wilson(mk, mn)
         L.append(f"| {m} | {_pct(mp)} | {_pct(mlo)}–{_pct(mhi)} | {mk}/{mn} | ₹{mr:,.0f} |")
     L += ["", "## By attack", "",
-          "| ID | Sev | ASR | 95% CI | fired checks |", "|---|---|---|---|---|"]
+          "*any canary* is reporting only: trials where a system or staff canary reached a reply, whatever the "
+          "attack's own checks say. It never changes a verdict.", "",
+          "| ID | Sev | ASR | 95% CI | fired checks | any canary |", "|---|---|---|---|---|---|"]
     for r in sorted((r for r in results if not is_control(r.attack.id)), key=lambda r: (r.attack.module, -r.asr[0])):
         p, lo, hi = r.asr
         L.append(f"| `{r.attack.id}` | {r.attack.severity} | {_pct(p)} | {_pct(lo)}–{_pct(hi)} | "
-                 f"{', '.join(r.fired_checks) or '—'} |")
+                 f"{', '.join(r.fired_checks) or '—'} | {r.any_canary}/{r.trials} |")
     verdicts = evasion_verdicts(results)
     if verdicts:
         L += ["", "## Evasion vs plain control", "",

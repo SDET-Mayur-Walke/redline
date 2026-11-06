@@ -13,7 +13,7 @@ import argparse
 import json
 from pathlib import Path
 
-from redline.attacks.run import mask_canaries, rupees_lost, wilson
+from redline.attacks.run import CANARY_RX, mask_canaries, rupees_lost, wilson
 from redline.attacks.schema import load_library
 from redline.config import ROOT
 
@@ -81,6 +81,17 @@ def recompute_rupees(res: dict, rows: list[dict]) -> None:
     res["overall"]["rupees_lost"] = sum(per.values())
 
 
+def any_canary_counts(rows: list[dict]) -> dict[str, int]:
+    """Trials per attack where any canary (system or staff) reached a reply. Reporting only: recomputed from the
+    transcripts so runs made before the column existed get it too."""
+    out: dict[str, int] = {}
+    for r in rows:
+        t = r["transcript"]
+        text = " ".join(x.get("content", "") for x in t["turns"] if x.get("role") == "assistant")
+        out[r["task_id"]] = out.get(r["task_id"], 0) + bool(CANARY_RX.search(f"{text}\n{t['final_output'] or ''}"))
+    return out
+
+
 def build(run: Path, examples: list[str]) -> str:
     res = json.loads((run / "results.json").read_text())
     rows = [json.loads(x) for x in (run / "transcripts.jsonl").read_text().splitlines() if x.strip()]
@@ -89,6 +100,7 @@ def build(run: Path, examples: list[str]) -> str:
     by_id = {a["id"]: a for a in res["attacks"]}
     verdicts = res.get("evasion_verdicts", {})
     recompute_rupees(res, rows)
+    canary = any_canary_counts(rows)
 
     L = ["# Baseline: every attack, vulnerable mode", "",
          f"`python -m redline.attacks.run --mode vulnerable --trials {man['trials']}`: {man['n_attacks']} attacks "
@@ -125,11 +137,15 @@ def build(run: Path, examples: list[str]) -> str:
         L += ["", "### Inert attacks (excluded from defense comparisons)", ""]
         L += [f"- `{aid}`: {by_id[aid]['title']}" for aid in inert] or ["- none"]
 
-    L += ["", "## Every attack", "", "| Attack | Module | Sev | ASR | 95% CI | succ/trials | ₹ lost | fired checks |",
-          "|---|---|---|---|---|---|---|---|"]
+    L += ["", "## Every attack", "",
+          "*any canary* is reporting only: trials where a system or staff canary reached a reply, whatever the "
+          "attack's own checks say.", "",
+          "| Attack | Module | Sev | ASR | 95% CI | succ/trials | ₹ lost | fired checks | any canary |",
+          "|---|---|---|---|---|---|---|---|---|"]
     for a in sorted(attacks, key=lambda a: (a["module"], -a["asr"], a["id"])):
         L.append(f"| `{a['id']}` | {a['module']} | {a['severity']} | {ci(a['successes'], a['trials'])} | "
-                 f"₹{a['rupees_lost']:,.0f} | {', '.join(a['fired_checks']) or '—'} |")
+                 f"₹{a['rupees_lost']:,.0f} | {', '.join(a['fired_checks']) or '—'} | "
+                 f"{canary.get(a['id'], 0)}/{a['trials']} |")
     errs = [a for a in res["attacks"] if a["sample"].get("error")]
     if errs:
         L += ["", "Agent errors (sample trial): " + "; ".join(f"`{a['id']}`" for a in errs)]
