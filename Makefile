@@ -1,4 +1,4 @@
-.PHONY: setup data test lint fmt check
+.PHONY: setup data index search test test-ollama lint fmt check
 
 setup:            ## create the venv and install everything for development
 	uv venv --python 3.12
@@ -8,14 +8,23 @@ data:             ## regenerate the synthetic store and reviews (deterministic)
 	.venv/bin/python -m redline.store.generate
 	.venv/bin/python -m redline.kb.generate_reviews
 
+index:            ## build the Qdrant index from data/kb (needs Ollama)
+	.venv/bin/python -m redline.kb.ingest
+
+search:           ## make search q="how long do UPI refunds take"
+	.venv/bin/python -m redline.kb.search "$(q)"
+
 test:
 	.venv/bin/pytest -q
 
+test-ollama:      ## tests that need a running Ollama
+	.venv/bin/pytest -q -m ollama
+
 lint:
-	.venv/bin/ruff check src tests
+	.venv/bin/ruff check src tests scripts
 
 fmt:
-	.venv/bin/ruff check --fix src tests
-	.venv/bin/ruff format src tests
+	.venv/bin/ruff check --fix src tests scripts
+	.venv/bin/ruff format src tests scripts
 
 check: lint test  ## what CI runs

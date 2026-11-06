@@ -16,6 +16,6 @@ jobs:
           uv venv --python 3.12
           uv pip install -e ".[dev]"
       - name: Lint
-        run: .venv/bin/ruff check src tests
+        run: .venv/bin/ruff check src tests scripts
       - name: Test
         run: .venv/bin/pytest -q
