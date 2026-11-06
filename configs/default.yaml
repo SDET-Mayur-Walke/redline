@@ -15,16 +15,16 @@ retrieval:
   top_k: 5
   rrf_k: 60
   sparse_model: Qdrant/bm25
-  rerank: false           # see docs/results/retrieval.md: slower, no gain here
+  rerank: true            # see docs/results/retrieval.md: halves staff-doc leak, raises MRR, ~160 ms/query
   reranker_model: Xenova/ms-marco-MiniLM-L-6-v2
   index_metadata: true    # metadata is indexed text: an attack surface on purpose
   staff_filter: false     # permission defense; off means staff docs are retrievable
 
 agent:
-  prompt: support_v2      # v1 kept for comparison
+  prompt: support_v3      # v2 plus a system-prompt canary; v1/v2 kept for comparison
   temperature: 0.2
   max_steps: 8
   num_ctx: 16384
   think: false
-  auto_retrieve: true     # retrieved docs reach the model every turn (RAG); see config.py
+  auto_retrieve: true     # retrieved docs reach the model every turn (RAG); widens the injection surface, see config.py
   timeout: 180.0

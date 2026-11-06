@@ -38,21 +38,25 @@ class RetrievalConfig(_Strict):
     top_k: int = Field(5, ge=1)
     rrf_k: int = Field(60, ge=1)
     sparse_model: str = "Qdrant/bm25"
-    rerank: bool = False                      # +~370 ms/query, no gain on our eval; kept for ablation
+    rerank: bool = True                       # +~160 ms/query; halves staff-doc leak (staff@5 0.15->0.07),
+    #                                           raises MRR@5 0.825->0.880. See docs/results/retrieval.md.
     reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
     index_metadata: bool = True               # vulnerable: author/title/source are embedded and searchable
     staff_filter: bool = False                # vulnerable: staff-only docs can be retrieved
 
 
 class AgentConfig(_Strict):
-    prompt: str = "support_v2"                # prompts/<name>.md, versioned so results name the prompt they used
+    prompt: str = "support_v3"                # prompts/<name>.md, versioned so results name the prompt they used
     temperature: float = Field(0.2, ge=0.0, le=2.0)
     max_steps: int = Field(8, ge=1)           # model calls per user turn, tool rounds included
     num_ctx: int = Field(16384, ge=2048)      # Ollama's default window silently truncates prompt + tools + hits
     think: bool = False                       # qwen3 reasoning off: faster, and tool calls don't hide in <think>
-    # search the help center for every user message before the first model call. qwen3:8b without thinking
-    # rarely calls search itself and answers from memory instead; this also means retrieved (and planted)
-    # documents reach the model on every substantive turn
+    # auto_retrieve: search the help center for every user message before the first model call, and feed the
+    # hits to the model as if it had searched. qwen3:8b without thinking rarely calls search itself and answers
+    # from memory instead, so this is on by default to make RAG real. It also WIDENS THE INJECTION SURFACE:
+    # retrieved (and planted) documents now reach the model on every substantive turn, unprompted, even when
+    # the user never asked a policy question. Turn it off to require an explicit tool call before any doc is
+    # pulled in, shrinking the indirect-injection surface at the cost of recall on qwen3:8b.
     auto_retrieve: bool = True
     timeout: float = 180.0
 
