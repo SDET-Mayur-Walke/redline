@@ -19,6 +19,9 @@ evaluated by what it does. The plan is in `docs/ROADMAP.md`; work through it one
 - Commit messages: imperative, one line plus a short body if needed.
 - Commits are authored by Mayur Walke (repo git config). Do not add `Co-Authored-By` or any other attribution
   trailer or "Generated with" line to commits or pull requests.
+- Never override git identity (`-c user.name`, `-c user.email`, `--author`): the repo config uses the GitHub
+  noreply email on purpose, so no personal email lands in the history.
+- Before every commit run `make check` and read its real exit code; never pipe it through `tail` or `head`.
 - Tests stay offline and fast (no Ollama in `pytest`); anything needing a model goes behind a marker or a script.
 - Python 3.12, `uv`, `ruff` (line length 120). Match the existing style: short modules, docstrings that explain why.
 

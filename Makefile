@@ -1,4 +1,4 @@
-.PHONY: setup data index search serve test test-ollama lint fmt check
+.PHONY: setup data index search serve sink test test-ollama lint fmt check
 
 setup:            ## create the venv and install everything for development
 	uv venv --python 3.12
@@ -16,6 +16,9 @@ search:           ## make search q="how long do UPI refunds take"
 
 serve:            ## the support agent API on 127.0.0.1:8000 (needs Ollama; rebuilds the index at startup)
 	.venv/bin/uvicorn redline.api:app --host 127.0.0.1 --port 8000
+
+sink:             ## the exfil sink, an attacker's request logger, on 127.0.0.1:8765
+	.venv/bin/python -m redline.sink
 
 test:
 	.venv/bin/pytest -q
