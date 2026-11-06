@@ -15,13 +15,16 @@ Each step ends with tests passing (`make check`), a commit, and a push.
 - [x] **8. Baseline**: run everything in vulnerable mode; also garak and rag-redteam against `/chat`. Results in `docs/results/baseline.md`, `garak.md`, `rag_redteam.md`.
 
 ## v0.3: the defenses
-- [ ] **9. Defense layers**, each behind a config switch: Unicode normalisation, ingestion scanner, spotlighting with a random per-request marker, injection classifier, guard LLM, tool-level authorization (session-scoped orders), refund limits in code, human confirmation for side effects, egress and markdown-image filter, output PII filter.
-- [ ] **10. Benign suite**: about 40 legitimate support tasks, graded on the final store state, to measure what each defense costs.
-- [ ] **11. Ablation**: each defense on its own, then all together: attack success, task success, latency.
+Build everything first, measure once at the end. Steps 9 and 10 end with smoke checks only; step 11 is the single
+full measurement, run on one commit after steps 12 and 13. Order: 9, 10, 12, 13, 11, 14.
+
+- [ ] **9. Defense layers**, each behind a config switch: Unicode normalisation, ingestion scanner, spotlighting with a random per-request marker, injection classifier, guard LLM, tool-level authorization (session-scoped orders), refund limits in code, human confirmation for side effects, egress and markdown-image filter, output PII filter. Ends with a smoke check (`docs/results/hardened_smoke.md`), not a measurement.
+- [ ] **10. Benign suite**: about 40 legitimate support tasks, graded on the final store state, to measure what each defense costs. Ends with a smoke check only.
 
 ## v0.4: the showcase
 - [ ] **12. CI gate**: deterministic canary probes against a stub model; fail the build if attack success regresses.
 - [ ] **13. Demo**: Streamlit chat with citations, a vulnerable/hardened switch, and a live exfil-sink and outbox panel.
+- [ ] **11. Full measurement** (after 12 and 13, on one commit): the hardened attack run, the benign suite on both configs, and a per-defense ablation (each defense on its own, then all together): attack success, task success, latency.
 - [ ] **14. Write-up**: README results table, threat model, OWASP mapping, "what broke".
 
 ## Phase 2 (during the LLMOps bootcamp)
