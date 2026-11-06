@@ -1,0 +1,35 @@
+# garak against the bare model (not the agent): a small, time-boxed probe set.
+# The REST generator talks to Ollama's /api/chat so it can pass think=false, the mode our agent runs in;
+# garak's own Ollama generator cannot, and a "/no_think" system message is ignored by current Ollama.
+#   garak --config scripts/scanners/garak.yaml --target_type rest --report_prefix redline-garak
+run:
+  generations: 1
+  soft_probe_prompt_cap: 8
+  seed: 7
+system:
+  parallel_attempts: false
+  lite: true
+plugins:
+  probe_spec: promptinject.HijackHateHumans,promptinject.HijackLongPrompt,latentinjection.LatentInjectionReport,latentinjection.LatentInjectionResume,latentinjection.LatentWhoisSnippet,encoding.InjectBase64,encoding.InjectROT13,encoding.InjectUnicodeTagChars,smuggling.HypotheticalResponse,smuggling.FunctionMasking
+  generators:
+    rest:
+      RestGenerator:
+        name: qwen3:8b (Ollama, think=false)
+        uri: http://127.0.0.1:11434/api/chat
+        method: post
+        headers:
+          Content-Type: application/json
+        req_template_json_object:
+          model: qwen3:8b
+          stream: false
+          think: false
+          options:
+            temperature: 0.2
+            num_ctx: 8192
+            num_predict: 512     # base64 "decoding" can loop forever; cap it so one prompt cannot stall the run
+          messages:
+            - role: user
+              content: $INPUT
+        response_json: true
+        response_json_field: $.message.content
+        request_timeout: 180
