@@ -16,7 +16,9 @@ from redline.agent.tools import to_json
 from redline.config import Config
 from redline.defenses import record, spotlight
 from redline.defenses.classifier import InjectionClassifier
+from redline.defenses.egress import strip_links
 from redline.defenses.guard import LlamaGuard
+from redline.defenses.output_filter import BLOCKED, OutputFilter
 from redline.defenses.unicode import normalize, normalize_tree
 
 REFUSAL = ("Sorry, I can't help with that request. I'm happy to help with your orders, returns, refunds or "
@@ -24,9 +26,24 @@ REFUSAL = ("Sorry, I can't help with that request. I'm happy to help with your o
 RETRIEVED_TOOLS = ("search_help_center", "fetch_url")   # text that came from documents or the web
 
 
+def protected_documents() -> list[str]:
+    """Texts the output filter guards besides the system prompt: every document whose audience isn't public."""
+    from redline.kb.corpus import load_corpus
+
+    return [d.text for d in load_corpus(include_staff=True, include_reviews=False)
+            if d.metadata.get("audience") != "public"]
+
+
 class Defenses:
-    def __init__(self, cfg: Config, classifier: InjectionClassifier | None = None, guard: LlamaGuard | None = None):
+    def __init__(self, cfg: Config, classifier: InjectionClassifier | None = None, guard: LlamaGuard | None = None,
+                 store=None, output_filter: OutputFilter | None = None):
         d = cfg.defenses
+        self.egress = list(d.egress_allowlist) if d.egress_filter else None
+        self.output = output_filter
+        if self.output is None and d.output_filter:
+            if store is None:
+                raise ValueError("output_filter needs the store (whose PII is whose)")
+            self.output = OutputFilter(store, protected_documents(), d.overlap_ngram, d.overlap_min_words)
         self.unicode = d.unicode_normalize
         self.classifier = (classifier or InjectionClassifier(d.injection_model, d.injection_threshold)
                            if d.injection_classifier else None)
@@ -98,7 +115,23 @@ class Defenses:
 
     # ----- output -----
 
-    def on_reply(self, reply: str, message: str, events: list[dict]) -> str:
+    def on_reply(self, reply: str, message: str, session) -> str:
+        """overlap block -> strip unlisted links/images -> redact PII -> guard. `session` gives the customer,
+        the rendered system prompt and the event log."""
+        events = session.events
+        if self.output:
+            dump, n = self.output.dumps_protected(reply, session.prompt)
+            if dump:
+                record(events, "output_filter", "block", f"reply reproduces {n} words of protected text")
+                return BLOCKED
+        if self.egress is not None:
+            reply, removed = strip_links(reply, self.egress)
+            if removed:
+                record(events, "egress", "strip", f"{len(removed)} link(s)/image(s): {', '.join(removed)[:200]}")
+        if self.output:
+            reply, n = self.output.redact_pii(reply, session.customer_id)
+            if n:
+                record(events, "output_filter", "redact", f"{n} value(s) of other customers or support-only")
         if self.guard:
             v = self.guard.check_output(message, reply)
             if v.error:

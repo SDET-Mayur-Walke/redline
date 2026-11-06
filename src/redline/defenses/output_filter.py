@@ -109,3 +109,14 @@ class OutputFilter:
             out, n = pattern.subn(REDACTED, out)
             count += n
         return out, count
+
+    # ----- overlap with protected text -----
+
+    def overlap(self, reply: str, system_prompt: str) -> int:
+        """Reply words covered by n-grams from the session's system prompt or a non-public document."""
+        protected = self._doc_grams | ngrams(words(system_prompt), self.n)
+        return covered_words(reply, protected, self.n)
+
+    def dumps_protected(self, reply: str, system_prompt: str) -> tuple[bool, int]:
+        n = self.overlap(reply, system_prompt)
+        return n >= self.min_words, n

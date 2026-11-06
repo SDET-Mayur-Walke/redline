@@ -122,7 +122,7 @@ class Agent:
                  policy: ToolPolicy | None = None, transport=None, defenses: Defenses | None = None):
         self.cfg, self.store, self.retriever = cfg, store, retriever
         self.llm = llm or LiteLLMChat(cfg)
-        self.defenses = defenses or Defenses(cfg)
+        self.defenses = defenses or Defenses(cfg, store=store)
         self.tools = SupportTools(store, retriever, cfg.retrieval.index_metadata, policy or build_policy(cfg, store),
                                   transport, cfg.defenses.confirm_side_effects)
         self.conversations: dict[str, Conversation] = {}
@@ -219,7 +219,7 @@ class Agent:
                                    "content": self.defenses.render_tool(c.name, result)})
 
         if refusal is None:
-            reply = self.defenses.on_reply(reply, text, s.events)
+            reply = self.defenses.on_reply(reply, text, s)
         s.messages.append({"role": "assistant", "content": reply})   # the filtered reply: what the customer saw
         conv.turns.append({"role": "assistant", "content": reply, "tool_calls": [c.name for c in calls]})
         conv.tool_calls += calls
