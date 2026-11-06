@@ -45,3 +45,29 @@ def test_encoded_attacks_render_a_hidden_payload():
             rendered = a.rendered_input()
             assert "{enc}" not in rendered
             assert a.encode.payload not in rendered    # the readable payload never ships verbatim
+
+
+def test_owasp_ids_are_in_the_official_2026_catalogs():
+    from redline.attacks.owasp import ASI_2026, LLM_2026
+    assert len(LLM_2026) == 10 and len(ASI_2026) == 10
+    for a in load_library():
+        assert set(a.owasp_llm) <= set(LLM_2026), a.id
+        assert set(a.owasp_asi) <= set(ASI_2026), a.id
+
+
+def test_old_owasp_ids_are_rejected():
+    import pytest
+    from pydantic import ValidationError
+
+    from redline.attacks.schema import Attack
+    base = {"id": "x", "module": "recon", "title": "t", "severity": "low", "customer_id": "C0011",
+            "input": "hi", "success_if": [{"check": "canary_in_reply"}], "owasp_llm": ["LLM01:2026"]}
+    with pytest.raises(ValidationError):
+        Attack.model_validate({**base, "owasp_asi": ["ASI-T06"]})
+    with pytest.raises(ValidationError):
+        Attack.model_validate({**base, "owasp_llm": ["LLM01:2025"]})
+
+
+def test_owasp_mapping_doc_is_current():
+    from redline.attacks.owasp import DOC, render
+    assert DOC.read_text(encoding="utf-8") == render(load_library()), "run python -m redline.attacks.owasp"

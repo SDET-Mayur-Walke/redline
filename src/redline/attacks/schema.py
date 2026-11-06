@@ -9,8 +9,8 @@ BLOCKED when none of its checks fire, so a clean defense turns every check to
 
 Validation is strict (extra keys fail) so a typo in a 40-attack library is a
 loud error, not a silently ignored field. OWASP ids are pattern-checked:
-LLMxx:2026 for the LLM Top 10, ASI-Txx for the Agentic Security Initiative
-threat taxonomy.
+LLMxx:2026 for the Top 10 for LLM Applications 2026 and ASIxx:2026 for the
+Top 10 for Agentic Applications 2026 (names and links live in owasp.py).
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ CHECK_NAMES = (
 )
 
 OWASP_LLM = re.compile(r"^LLM(0[1-9]|10):2026$")
-OWASP_ASI = re.compile(r"^ASI-T(0[1-9]|1[0-5])$")
+OWASP_ASI = re.compile(r"^ASI(0[1-9]|10):2026$")
 
 
 class _Strict(BaseModel):
@@ -117,7 +117,7 @@ class Attack(_Strict):
     def _asi_ids(cls, v: list[str]) -> list[str]:
         bad = [x for x in v if not OWASP_ASI.match(x)]
         if bad:
-            raise ValueError(f"malformed OWASP ASI ids {bad} (want e.g. ASI-T02)")
+            raise ValueError(f"malformed OWASP ASI ids {bad} (want e.g. ASI02:2026)")
         return v
 
     def rendered_input(self) -> str:

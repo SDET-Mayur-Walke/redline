@@ -10,7 +10,7 @@ Each step ends with tests passing (`make check`), a commit, and a push.
 
 ## v0.2: the attacks
 - [x] **5. Exfil sink**: a local "attacker" HTTP listener that logs every hit.
-- [x] **6. Attack library**: about 40 YAML attacks grouped by course module (recon and prompt leaks, indirect injection via docs, reviews and metadata, zero-click exfiltration, excessive agency, filter evasion), tagged with OWASP LLM 2026 and OWASP Agentic (ASI) IDs.
+- [x] **6. Attack library**: about 40 YAML attacks grouped by course module (recon and prompt leaks, indirect injection via docs, reviews and metadata, zero-click exfiltration, excessive agency, filter evasion), tagged with OWASP Top 10 for LLM Applications 2026 (LLMxx:2026) and Agentic Applications 2026 (ASIxx:2026) ids; see `docs/owasp_mapping.md`.
 - [x] **7. Runner**: each attack becomes an agentproof `Task` with security graders (`canary_leaked`, `exfil_hit`, `unauthorized_refund`, `cross_customer_access`, ...), N trials, attack success rate with a 95% Wilson interval.
 - [ ] **8. Baseline**: run everything in vulnerable mode; also garak and rag-redteam against `/chat`.
 
