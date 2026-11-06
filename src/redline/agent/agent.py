@@ -6,7 +6,8 @@ stops when the model answers in text or after `max_steps` model calls. What
 the agent *did* (every tool call with its arguments and result) is recorded
 so the graders can judge actions, not just the reply.
 
-The LLM is injectable (`LLM` below) so tests can script it.
+The LLM is injectable (`LLM` below) so tests can script it; `models.agent: "stub"` selects
+the deterministic stub in agent/stub.py, which CI uses to test the defenses without a model.
 """
 
 from __future__ import annotations
@@ -76,6 +77,15 @@ class LiteLLMChat:
         return LLMReply(m.content or "", calls, r.usage.prompt_tokens or 0, r.usage.completion_tokens or 0)
 
 
+def make_llm(cfg: Config) -> LLM:
+    """models.agent "stub" selects the deterministic stub (agent/stub.py, for CI); anything else is Ollama."""
+    if cfg.models.agent == "stub":
+        from redline.agent.stub import StubLLM
+
+        return StubLLM()
+    return LiteLLMChat(cfg)
+
+
 @dataclass
 class TurnResult:
     reply: str
@@ -122,7 +132,7 @@ class Agent:
     def __init__(self, cfg: Config, store: Store, retriever, llm: LLM | None = None,
                  policy: ToolPolicy | None = None, transport=None, defenses: Defenses | None = None):
         self.cfg, self.store, self.retriever = cfg, store, retriever
-        self.llm = llm or LiteLLMChat(cfg)
+        self.llm = llm or make_llm(cfg)
         self.defenses = defenses or Defenses(cfg, store=store)
         self.tools = SupportTools(store, retriever, cfg.retrieval.index_metadata, policy or build_policy(cfg, store),
                                   transport, cfg.defenses.confirm_side_effects)
