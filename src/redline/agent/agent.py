@@ -137,8 +137,8 @@ class Agent:
         conv = self.conversations.get(session_id)
         if conv is None:
             s = Session(session_id, customer_id)
-            s.messages.append({"role": "system", "content": render_prompt(self.cfg.agent.prompt, self.store,
-                                                                          customer_id)})
+            s.prompt = render_prompt(self.cfg.agent.prompt, self.store, customer_id)
+            s.messages.append({"role": "system", "content": s.prompt})
             conv = self.conversations[session_id] = Conversation(s)
         elif conv.session.customer_id != customer_id:
             raise ValueError(f"session {session_id} belongs to another customer")
@@ -166,6 +166,7 @@ class Agent:
 
     def _chat(self, conv: Conversation, message: str) -> TurnResult:
         s, calls = conv.session, []
+        s.messages[0]["content"] = self.defenses.begin_turn(s.prompt)
         text, refusal = self.defenses.on_user_message(message, s.events)
         s.messages.append({"role": "user", "content": text})
         conv.turns.append({"role": "user", "content": message})      # what the customer sent, for the graders

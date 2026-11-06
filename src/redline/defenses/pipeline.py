@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from redline.agent.tools import to_json
 from redline.config import Config
-from redline.defenses import record
+from redline.defenses import record, spotlight
 from redline.defenses.classifier import InjectionClassifier
 from redline.defenses.guard import LlamaGuard
 from redline.defenses.unicode import normalize, normalize_tree
@@ -31,6 +31,15 @@ class Defenses:
         self.classifier = (classifier or InjectionClassifier(d.injection_model, d.injection_threshold)
                            if d.injection_classifier else None)
         self.guard = (guard or LlamaGuard(d.guard_model, cfg.models.ollama_base_url)) if d.guard_llm else None
+        self.spotlight = d.spotlight
+        self.marker: str | None = None
+
+    def begin_turn(self, base_prompt: str) -> str:
+        """The system prompt for this turn. With spotlighting on, a fresh marker and the note that declares it."""
+        if not self.spotlight:
+            return base_prompt
+        self.marker = spotlight.new_marker()
+        return base_prompt + spotlight.system_note(self.marker)
 
     # ----- input -----
 
@@ -83,6 +92,8 @@ class Defenses:
         return result
 
     def render_tool(self, name: str, result) -> str:
+        if self.spotlight and self.marker:
+            return spotlight.render(name, result, self.marker)
         return to_json(result)
 
     # ----- output -----

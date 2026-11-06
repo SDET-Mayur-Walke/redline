@@ -109,7 +109,13 @@ def make_attack_fn(agent: Agent, sink: SinkServer, by_id: dict[str, Attack]):
         conv = agent.conversations.get(sid)
         t = conv.transcript(agent.store, error=error) if conv else Transcript(
             final_output="", outcome=agent.store.effects.as_dict(), error=error)
-        t.outcome = {**(t.outcome or {}), "sink_hits": sink.sink.snapshot()}      # merge the world's other half
+        # the world's other half: the sink's hits, and the planted chunks the ingestion scanner held back
+        quarantined = [{"layer": "ingestion_scanner", "action": "quarantine",
+                        "detail": f"{q['chunk_id']}: {'; '.join(q['reasons'])}"[:300]}
+                       for q in getattr(agent.retriever, "quarantined", []) if q["origin"] == "planted"]
+        out = t.outcome or {}
+        t.outcome = {**out, "sink_hits": sink.sink.snapshot(),
+                     "defense_events": quarantined + list(out.get("defense_events", []))}
         return t
     return run
 

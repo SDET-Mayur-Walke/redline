@@ -42,6 +42,7 @@ class Session:
     customer_id: str
     messages: list[dict] = field(default_factory=list)     # the LLM conversation, system prompt first
     events: list[dict] = field(default_factory=list)       # what each defense layer did (see defenses/__init__)
+    prompt: str = ""                                       # the rendered system prompt, before per-turn notes
 
 
 class ToolPolicy:
