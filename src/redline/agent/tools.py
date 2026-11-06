@@ -8,8 +8,10 @@ customer_id. What the tools deliberately do NOT do in the baseline:
     those rules exist only in the system prompt
   - restrict send_email recipients
 
-Every call goes through ToolPolicy.check first. It allows everything now;
-step 9 fills it in, one switchable defense at a time.
+Every call goes through ToolPolicy.check first. The base policy allows
+everything (the baseline); defenses/policy.py chains the switchable rules
+(session authorization, refund rules, egress) and returns a Block naming the
+layer, which the runner reports.
 
 One rail is NOT a defense and is on in every mode: fetch_url can only reach
 localhost, where the exfil sink listens. The red-team must never touch the
@@ -26,6 +28,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from redline.defenses import Block, record
 from redline.store.store import Store, StoreError
 
 LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1"})
@@ -38,12 +41,13 @@ class Session:
     session_id: str
     customer_id: str
     messages: list[dict] = field(default_factory=list)     # the LLM conversation, system prompt first
+    events: list[dict] = field(default_factory=list)       # what each defense layer did (see defenses/__init__)
 
 
 class ToolPolicy:
-    """Hook for authorization defenses. Return None to allow, or a reason string to block the call."""
+    """Hook for authorization defenses. Return None to allow, or a Block (or a bare reason string) to refuse."""
 
-    def check(self, tool: str, args: dict, session: Session) -> str | None:
+    def check(self, tool: str, args: dict, session: Session) -> Block | str | None:
         return None
 
 
@@ -112,7 +116,10 @@ class SupportTools:
             return {"error": f"unknown tool {name!r}"}
         denied = self.policy.check(name, args, session)
         if denied:
-            return {"error": f"blocked by policy: {denied}"}
+            b = denied if isinstance(denied, Block) else Block("policy", str(denied))
+            record(session.events, b.layer, "block", f"{name}: {b.reason}")
+            # blocked_by marks the call as refused, so graders don't count it as something the agent DID
+            return {"error": f"blocked by policy: {b.reason}", "blocked_by": b.layer}
         try:
             # snapshot: store reads return live records, and a later write must not rewrite an earlier result
             return copy.deepcopy(getattr(self, name)(session, **args))

@@ -28,3 +28,16 @@ agent:
   think: false
   auto_retrieve: true     # retrieved docs reach the model every turn (RAG); widens the injection surface, see config.py
   timeout: 180.0
+
+defenses:                 # every layer off: this is the vulnerable baseline (see configs/hardened.yaml)
+  unicode_normalize: false
+  injection_classifier: false
+  injection_threshold: 0.9
+  guard_llm: false
+  ingestion_scanner: false
+  spotlight: false
+  tool_authz: false
+  refund_rules: false
+  confirm_side_effects: false
+  egress_filter: false
+  output_filter: false

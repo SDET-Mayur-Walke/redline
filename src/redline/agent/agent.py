@@ -21,8 +21,9 @@ from typing import Protocol
 
 from agentproof import ToolCall, Transcript
 
-from redline.agent.tools import SCHEMAS, Session, SupportTools, ToolPolicy, to_json
+from redline.agent.tools import SCHEMAS, Session, SupportTools, ToolPolicy
 from redline.config import ROOT, Config
+from redline.defenses.pipeline import Defenses
 from redline.store.store import AUTO_REFUND_LIMIT, RETURN_WINDOW_DAYS, Store
 
 PROMPTS = ROOT / "prompts"
@@ -79,7 +80,7 @@ class TurnResult:
     tool_calls: list[ToolCall]
     citations: list[str]
     steps: int
-    stopped: str            # "answer" or "max_steps"
+    stopped: str            # "answer", "max_steps" or "blocked" (an input defense refused the turn)
     usage: dict
 
 
@@ -95,7 +96,8 @@ class Conversation:
 
     def transcript(self, store: Store, error: str | None = None) -> Transcript:
         final = next((t["content"] for t in reversed(self.turns) if t["role"] == "assistant"), "")
-        return Transcript(final_output=final, tool_calls=list(self.tool_calls), outcome=store.effects.as_dict(),
+        outcome = {**store.effects.as_dict(), "defense_events": list(self.session.events)}
+        return Transcript(final_output=final, tool_calls=list(self.tool_calls), outcome=outcome,
                           turns=list(self.turns), usage=dict(self.usage), error=error)
 
 
@@ -116,9 +118,10 @@ def _parse_args(raw: str) -> dict | None:
 
 class Agent:
     def __init__(self, cfg: Config, store: Store, retriever, llm: LLM | None = None,
-                 policy: ToolPolicy | None = None, transport=None):
+                 policy: ToolPolicy | None = None, transport=None, defenses: Defenses | None = None):
         self.cfg, self.store, self.retriever = cfg, store, retriever
         self.llm = llm or LiteLLMChat(cfg)
+        self.defenses = defenses or Defenses(cfg)
         self.tools = SupportTools(store, retriever, cfg.retrieval.index_metadata, policy, transport)
         self.conversations: dict[str, Conversation] = {}
         self._lock = threading.Lock()   # one store, one local model: serialise turns
@@ -148,25 +151,32 @@ class Agent:
     def _auto_search(self, s: Session, message: str):
         """Run search_help_center for the user's message and insert it as if the model had called it."""
         args = {"query": message}
-        result = self.tools.call("search_help_center", args, s)
+        result = self._tool("search_help_center", args, s)
         call_id = f"auto_{len(s.messages)}"
         s.messages.append({"role": "assistant", "content": "", "tool_calls": [
             {"id": call_id, "type": "function", "function": {"name": "search_help_center",
                                                              "arguments": json.dumps(args)}}]})
         s.messages.append({"role": "tool", "tool_call_id": call_id, "name": "search_help_center",
-                           "content": to_json(result)})
+                           "content": self.defenses.render_tool("search_help_center", result)})
         return ToolCall("search_help_center", args, result)
+
+    def _tool(self, name: str, args: dict, s: Session):
+        """One tool call as the model will see it: the tool layer (policy included), then the input defenses."""
+        return self.defenses.on_tool_result(name, self.tools.call(name, args, s), s.events)
 
     def _chat(self, conv: Conversation, message: str) -> TurnResult:
         s, calls = conv.session, []
-        s.messages.append({"role": "user", "content": message})
-        conv.turns.append({"role": "user", "content": message})
+        text, refusal = self.defenses.on_user_message(message, s.events)
+        s.messages.append({"role": "user", "content": text})
+        conv.turns.append({"role": "user", "content": message})      # what the customer sent, for the graders
         usage = {"prompt_tokens": 0, "completion_tokens": 0, "llm_calls": 0, "latency_s": 0.0}
         reply, stopped, steps = MAX_STEPS_REPLY, "max_steps", 0
-        if self.cfg.agent.auto_retrieve and len(message.split()) >= AUTO_SEARCH_MIN_WORDS:
-            calls.append(self._auto_search(s, message))
+        if refusal is not None:
+            reply, stopped = refusal, "blocked"
+        elif self.cfg.agent.auto_retrieve and len(text.split()) >= AUTO_SEARCH_MIN_WORDS:
+            calls.append(self._auto_search(s, text))
 
-        while steps < self.cfg.agent.max_steps:
+        while refusal is None and steps < self.cfg.agent.max_steps:
             steps += 1
             t0 = time.perf_counter()
             out = self.llm(s.messages, SCHEMAS)
@@ -184,12 +194,15 @@ class Agent:
                 for c in out.tool_calls]})
             for c in out.tool_calls:
                 args = _parse_args(c.arguments)
-                result = (self.tools.call(c.name, args, s) if args is not None
+                result = (self._tool(c.name, args, s) if args is not None
                           else {"error": "arguments were not a JSON object"})
                 calls.append(ToolCall(c.name, args if args is not None else {"_raw": c.arguments}, result))
-                s.messages.append({"role": "tool", "tool_call_id": c.id, "name": c.name, "content": to_json(result)})
+                s.messages.append({"role": "tool", "tool_call_id": c.id, "name": c.name,
+                                   "content": self.defenses.render_tool(c.name, result)})
 
-        s.messages.append({"role": "assistant", "content": reply})
+        if refusal is None:
+            reply = self.defenses.on_reply(reply, text, s.events)
+        s.messages.append({"role": "assistant", "content": reply})   # the filtered reply: what the customer saw
         conv.turns.append({"role": "assistant", "content": reply, "tool_calls": [c.name for c in calls]})
         conv.tool_calls += calls
         for k, v in usage.items():
