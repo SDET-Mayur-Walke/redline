@@ -1,4 +1,4 @@
-.PHONY: setup data index search serve sink demo demo-stub test test-ollama lint fmt check gate
+.PHONY: setup data index search serve sink demo demo-stub test test-ollama lint fmt check gate ablation
 
 setup:            ## create the venv and install everything for development
 	uv venv --python 3.12
@@ -46,3 +46,6 @@ check: lint test  ## what CI runs
 
 gate:             ## CI gate: stub-model probes vs gate/baseline.json (offline, no Ollama)
 	.venv/bin/python -m redline.gate
+
+ablation:         ## step 11, the full measurement: hours, needs Ollama, resumable; logs to runs/ablation/run.log
+	.venv/bin/python -m redline.ablation

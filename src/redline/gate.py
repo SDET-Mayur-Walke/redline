@@ -4,7 +4,8 @@
     python -m redline.gate --update-baseline        # after a deliberate change, rewrite gate/baseline.json
 
 Everything runs in-process and offline: the stub model (agent/stub.py), hash encoders over an in-memory index,
-the exfil sink on 127.0.0.1. The probes are ids from the attack library and the benign suite (gate/probes.yaml).
+the exfil sink on a free port of 127.0.0.1 (the attacks are retargeted to it, so `make sink` can run alongside).
+The probes are ids from the attack library and the benign suite (gate/probes.yaml).
 Two runs, two assertions:
 
   1. gate/vulnerable.yaml (every defense off): EVERY probe attack must succeed. If one doesn't, the probe has
@@ -34,7 +35,7 @@ from agentproof.report import gate as agentproof_gate
 
 from redline.agent.agent import Agent
 from redline.attacks import run as attack_run
-from redline.attacks.graders import GraderCtx
+from redline.attacks.graders import GraderCtx, sink_hostports
 from redline.attacks.schema import load_library
 from redline.benign import run as benign_run
 from redline.benign.schema import load_tasks
@@ -43,7 +44,7 @@ from redline.defenses.scanner import IngestionScanner
 from redline.kb.corpus import load_corpus
 from redline.kb.encoders import HashEmbedder, HashSparse
 from redline.kb.retrieval import Retriever
-from redline.sink import SinkServer
+from redline.sink import Sink, SinkServer
 from redline.store.store import Store
 
 GATE = ROOT / "gate"
@@ -70,12 +71,13 @@ def run_attacks(cfg: Config, ids: list[str], regression: set[str] = frozenset())
     missing = [i for i in ids if i not in lib]
     if missing:
         raise SystemExit(f"unknown attack ids in {PROBES.name}: {missing}")
-    ctx = GraderCtx(store=Store(), sys_canary=attack_run.sys_canary_of(cfg.agent.prompt))
-    tasks, by_id = attack_run.build_tasks([lib[i] for i in ids], ctx)
-    tasks = [dataclasses.replace(t, tier=Tier.REGRESSION if t.id in regression else Tier.CAPABILITY)
-             for t in tasks]
     agent = offline_agent(cfg)
-    with SinkServer() as sink:
+    with SinkServer(Sink(log_path=None), port=0) as sink:     # a free port: `make sink` can run alongside
+        ctx = GraderCtx(store=Store(), sys_canary=attack_run.sys_canary_of(cfg.agent.prompt),
+                        sink_hostports=sink_hostports(sink.port))
+        tasks, by_id = attack_run.build_tasks(attack_run.retarget_sink([lib[i] for i in ids], sink.port), ctx)
+        tasks = [dataclasses.replace(t, tier=Tier.REGRESSION if t.id in regression else Tier.CAPABILITY)
+                 for t in tasks]
         report = asyncio.run(run_suite(tasks, attack_run.make_attack_fn(agent, sink, by_id), trials=1,
                                        concurrency=1))
     return attack_run.summarise(report, by_id), report

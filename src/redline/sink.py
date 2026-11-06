@@ -135,9 +135,13 @@ class SinkServer:
         self._thread: threading.Thread | None = None
 
     @property
+    def port(self) -> int:
+        """The bound port: the one asked for, or the free one the OS picked for port=0."""
+        return self._httpd.server_address[1]
+
+    @property
     def url(self) -> str:
-        host, port = self._httpd.server_address[0], self._httpd.server_address[1]
-        return f"http://{host}:{port}"
+        return f"http://{self._httpd.server_address[0]}:{self.port}"
 
     def start(self) -> SinkServer:
         self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)

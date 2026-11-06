@@ -36,7 +36,7 @@ from redline.attacks.schema import CONTROL_SUFFIX, Attack, is_control, load_libr
 from redline.config import ROOT, Config, load_config, resolve
 from redline.defenses import stopping_layers
 from redline.kb.corpus import Document
-from redline.sink import SinkServer
+from redline.sink import SINK_PORT, SinkServer
 from redline.store.store import Store
 
 RUNS = ROOT / "runs"
@@ -80,6 +80,22 @@ def setup_documents(attack: Attack) -> list[Document]:
 
 
 # ----- tasks and adapter -----
+
+def retarget_sink(attacks: list[Attack], port: int) -> list[Attack]:
+    """The same attacks aimed at a sink on another port. The library pins the default port in its payloads; a run
+    whose sink bound elsewhere (the CI gate takes a free port so it never clashes with `make sink`) rewrites every
+    field before encoding, so encoded payloads carry the new port too. Grade with graders.sink_hostports(port).
+    Retarget the library, then derive the controls (with_controls): a control is not a valid library entry."""
+    if port == SINK_PORT:
+        return list(attacks)
+    out = []
+    for a in attacks:
+        raw = a.model_dump_json()
+        for host in ("127.0.0.1", "localhost"):
+            raw = raw.replace(f"{host}:{SINK_PORT}", f"{host}:{port}")
+        out.append(Attack.model_validate_json(raw))
+    return out
+
 
 def build_tasks(attacks: list[Attack], ctx: GraderCtx) -> tuple[list[Task], dict[str, Attack]]:
     tasks, by_id = [], {}
