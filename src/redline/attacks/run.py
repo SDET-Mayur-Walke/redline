@@ -361,8 +361,9 @@ def transcripts_jsonl(report: SuiteReport) -> str:
 # ----- CLI -----
 
 def select(attacks: list[Attack], module: str | None, attack_id: str | None, smoke: bool) -> list[Attack]:
-    if attack_id:
-        return [a for a in attacks if a.id == attack_id]
+    if attack_id:                                  # one id, or several separated by commas, in library order
+        wanted = {x.strip() for x in attack_id.split(",") if x.strip()}
+        return [a for a in attacks if a.id in wanted]
     if module:
         attacks = [a for a in attacks if a.module == module]
     if smoke:
@@ -406,7 +407,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--trials", type=int, default=3)
     ap.add_argument("--module", choices=["recon", "indirect_injection", "exfiltration", "excessive_agency",
                                          "evasion"])
-    ap.add_argument("--attack", help="run a single attack by id")
+    ap.add_argument("--attack", "--attacks", dest="attack", help="run attacks by id (comma-separated)")
     ap.add_argument("--smoke", action="store_true", help="one attack per module, 1 trial (needs Ollama + sink)")
     ap.add_argument("--out", help="also copy report.md here (e.g. docs/results/attacks_smoke.md)")
     args = ap.parse_args(argv)

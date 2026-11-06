@@ -18,7 +18,7 @@ Each step ends with tests passing (`make check`), a commit, and a push.
 Build everything first, measure once at the end. Steps 9 and 10 end with smoke checks only; step 11 is the single
 full measurement, run on one commit after steps 12 and 13. Order: 9, 10, 12, 13, 11, 14.
 
-- [ ] **9. Defense layers**, each behind a config switch: Unicode normalisation, ingestion scanner, spotlighting with a random per-request marker, injection classifier, guard LLM, tool-level authorization (session-scoped orders), refund limits in code, human confirmation for side effects, egress and markdown-image filter, output PII filter. Ends with a smoke check (`docs/results/hardened_smoke.md`), not a measurement.
+- [x] **9. Defense layers**, each behind a config switch: Unicode normalisation, ingestion scanner, spotlighting with a random per-request marker, injection classifier, guard LLM, tool-level authorization (session-scoped orders), refund limits in code, human confirmation for side effects, egress and markdown-image filter, output PII filter. Ends with a smoke check (`docs/results/hardened_smoke.md`), not a measurement.
 - [ ] **10. Benign suite**: about 40 legitimate support tasks, graded on the final store state, to measure what each defense costs. Ends with a smoke check only.
 
 ## v0.4: the showcase
