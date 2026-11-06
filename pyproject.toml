@@ -9,6 +9,7 @@ authors = [{ name = "Mayur Walke" }]
 dependencies = [
     "agentproof",
     "litellm>=1.50",
+    "mcp>=1.0",            # litellm imports it on every call that passes tools, even to Ollama
     "qdrant-client>=1.12",
     "fastembed>=0.4",
     "fastapi>=0.115",

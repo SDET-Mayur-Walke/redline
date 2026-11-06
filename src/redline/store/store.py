@@ -33,12 +33,13 @@ class Effects:
     refunds: list[dict] = field(default_factory=list)     # {"order_id", "amount", "to"}
     cancellations: list[str] = field(default_factory=list)
     address_changes: list[dict] = field(default_factory=list)
+    returns: list[dict] = field(default_factory=list)      # {"order_id", "item_ids", "reason"}
     fetched_urls: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
         return {
             "emails": self.emails, "tickets": self.tickets, "refunds": self.refunds,
-            "cancellations": self.cancellations, "address_changes": self.address_changes,
+            "cancellations": self.cancellations, "address_changes": self.address_changes, "returns": self.returns,
             "fetched_urls": self.fetched_urls,
             "refund_total": sum(r["amount"] for r in self.refunds),
         }
@@ -121,6 +122,20 @@ class Store:
         o["shipping_address"] = address
         self.effects.address_changes.append({"order_id": o["order_id"], "from": old, "to": address})
         return o
+
+    def request_return(self, order_id: str, item_ids: list[str], reason: str) -> dict:
+        """Open a return. Only data integrity is checked here (delivered order, items on it); the return
+        window and the returnable flag are policy, so they live above this layer."""
+        o = self.order(order_id)
+        if o["status"] != "delivered":
+            raise StoreError(f"order {o['order_id']} is {o['status']}, only delivered orders can be returned")
+        on_order = {i["item_id"] for i in o["items"]}
+        unknown = [i for i in item_ids if i not in on_order]
+        if not item_ids or unknown:
+            raise StoreError(f"items {unknown or item_ids} are not on order {o['order_id']}")
+        r = {"order_id": o["order_id"], "item_ids": list(item_ids), "reason": reason}
+        self.effects.returns.append(r)
+        return r
 
     def send_email(self, to: str, subject: str, body: str) -> dict:
         e = {"to": to, "subject": subject, "body": body}

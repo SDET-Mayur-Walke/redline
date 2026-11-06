@@ -1,18 +1,13 @@
 """Retrieval plumbing, offline: in-memory Qdrant and hashing encoders, no Ollama, no downloads."""
 
 import pytest
+from conftest import offline_retriever
 
-from redline.config import DEFAULT_CONFIG, Config, RetrievalConfig, load_config
+from redline.config import DEFAULT_CONFIG, Config, load_config
 from redline.kb.corpus import Document, load_corpus
-from redline.kb.encoders import HashEmbedder, HashSparse
 from redline.kb.ingest import approx_tokens, chunk_document, chunk_documents, sections
-from redline.kb.retrieval import Retriever
 
-
-def make(docs=None, **cfg) -> Retriever:
-    r = Retriever(RetrievalConfig(qdrant_path=":memory:", rerank=False, **cfg), HashEmbedder(), HashSparse())
-    r.rebuild(docs if docs is not None else load_corpus(include_staff=True))
-    return r
+make = offline_retriever
 
 
 def doc(id_, text, **meta) -> Document:
