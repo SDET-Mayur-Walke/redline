@@ -217,6 +217,12 @@ async def test_summarise_and_rollup_offline():
     assert "canary_in_reply" in by["a-leak"].fired_checks
     rollup = module_rollup(results)
     assert rollup["recon"] == (1, 2, 0.0) and rollup["_overall"][:2] == (1, 2)
+    import json
+
+    from redline.attacks.run import transcripts_jsonl
+    rows = [json.loads(x) for x in transcripts_jsonl(report).splitlines()]
+    assert {r["task_id"] for r in rows} == {"a-leak", "a-safe"}
+    assert all(r["transcript"]["turns"] and r["grades"] for r in rows)
 
 
 # ----- evasion controls -----

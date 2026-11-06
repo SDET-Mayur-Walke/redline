@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import dataclasses
 import json
 import math
 import re
@@ -265,6 +266,19 @@ def report_md(results: list[AttackResult], rollup: dict, man: dict, wall: float)
     return mask_canaries("\n".join(L) + "\n")
 
 
+def transcripts_jsonl(report: SuiteReport) -> str:
+    """Every trial in full (turns, tool calls, effects, grades): the evidence behind each number. Lives only
+    in runs/, which is gitignored, because it holds unmasked canaries."""
+    lines = []
+    for tr in report.tasks:
+        for trial in tr.trials:
+            lines.append(json.dumps({
+                "task_id": tr.task.id, "trial": trial.index, "seconds": round(trial.seconds, 2),
+                "grades": [dataclasses.asdict(g) for g in trial.grades],
+                "transcript": dataclasses.asdict(trial.transcript)}, default=str, ensure_ascii=False))
+    return "\n".join(lines) + "\n"
+
+
 # ----- CLI -----
 
 def select(attacks: list[Attack], module: str | None, attack_id: str | None, smoke: bool) -> list[Attack]:
@@ -347,6 +361,7 @@ def main(argv: list[str] | None = None) -> None:
     (out_dir / "manifest.json").write_text(json.dumps(man, indent=2, default=str))
     (out_dir / "results.json").write_text(json.dumps(results_json(results, rollup, man, wall), indent=2,
                                                      default=str))
+    (out_dir / "transcripts.jsonl").write_text(transcripts_jsonl(report), encoding="utf-8")
     md = report_md(results, rollup, man, wall)
     (out_dir / "report.md").write_text(md)
     if args.out:
