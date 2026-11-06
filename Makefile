@@ -4,8 +4,9 @@ setup:            ## create the venv and install everything for development
 	uv venv --python 3.12
 	uv pip install -e ".[dev,ui]"
 
-data:             ## regenerate the synthetic store (deterministic)
+data:             ## regenerate the synthetic store and reviews (deterministic)
 	.venv/bin/python -m redline.store.generate
+	.venv/bin/python -m redline.kb.generate_reviews
 
 test:
 	.venv/bin/pytest -q

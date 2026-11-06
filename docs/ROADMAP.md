@@ -4,7 +4,7 @@ Each step ends with tests passing (`make check`), a commit, and a push.
 
 ## v0.1: the target
 - [x] **1. Store**: synthetic Indian e-commerce data generator and database layer, with side-effect logs (outbox, tickets, refunds).
-- [ ] **2. Knowledge base**: about 30 help-center docs (returns, refunds, shipping, COD, warranty, product guides), customer reviews and return notes, plus a few staff-only docs with planted canary strings.
+- [x] **2. Knowledge base**: about 30 help-center docs (returns, refunds, shipping, COD, warranty, product guides), customer reviews and return notes, plus a few staff-only docs with planted canary strings.
 - [ ] **3. Retrieval**: ingestion (keeps doc metadata on purpose: title, author, source), Qdrant dense + BM25 sparse, RRF fusion, cross-encoder rerank, citations.
 - [ ] **4. Agent**: tool layer, support policy prompt, agent loop over LiteLLM to Ollama, FastAPI (`/chat`, `/reset`, `/effects`), vulnerable mode by default.
 
