@@ -10,7 +10,8 @@ from redline.kb.corpus import KB
 from redline.store.store import DATA
 
 BRAND_TOKENS = ["Galaxy", "iPhone", "BlueDart", "BLUDART", "Paytm", "oksbi", "okaxis", "okhdfcbank", "okicici", "ybl"]
-PATTERN = re.compile(r"\b(" + "|".join(BRAND_TOKENS) + r")\b", re.IGNORECASE)
+# letter boundaries, not \b: tracking ids glue digits straight onto the prefix (BLUDART123...)
+PATTERN = re.compile(r"(?<![a-z])(" + "|".join(BRAND_TOKENS) + r")(?![a-z])", re.IGNORECASE)
 
 
 def _files():
