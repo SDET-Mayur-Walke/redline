@@ -17,6 +17,8 @@ evaluated by what it does. The plan is in `docs/ROADMAP.md`; work through it one
 ## Workflow
 - After each roadmap step: `make check` passes, tick the box in `docs/ROADMAP.md`, commit, push.
 - Commit messages: imperative, one line plus a short body if needed.
+- Commits are authored by Mayur Walke (repo git config). Do not add `Co-Authored-By` or any other attribution
+  trailer or "Generated with" line to commits or pull requests.
 - Tests stay offline and fast (no Ollama in `pytest`); anything needing a model goes behind a marker or a script.
 - Python 3.12, `uv`, `ruff` (line length 120). Match the existing style: short modules, docstrings that explain why.
 
