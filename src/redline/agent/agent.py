@@ -23,6 +23,7 @@ from agentproof import ToolCall, Transcript
 
 from redline.agent.tools import SCHEMAS, Session, SupportTools, ToolPolicy
 from redline.config import ROOT, Config
+from redline.defenses import record
 from redline.defenses.pipeline import Defenses
 from redline.defenses.policy import build_policy
 from redline.store.store import AUTO_REFUND_LIMIT, RETURN_WINDOW_DAYS, Store
@@ -181,8 +182,23 @@ class Agent:
         """One tool call as the model will see it: the tool layer (policy included), then the input defenses."""
         return self.defenses.on_tool_result(name, self.tools.call(name, args, s), s.events)
 
+    def _filter_reply(self, reply: str, text: str, s: Session, pending_before: set[str]) -> str:
+        """The output defenses. If one of them replaced the reply (a "block" event: the overlap block or the
+        guard), the customer sees a refusal, so any side effect proposed this turn must not stay confirmable:
+        a Confirm button under "Sorry, I can't help with that" would run an action the customer was told
+        was refused. Strips and redactions edit the reply but keep its meaning, so they cancel nothing."""
+        n = len(s.events)
+        out = self.defenses.on_reply(reply, text, s)
+        if any(e["action"] == "block" for e in s.events[n:]):
+            new = [a for a in s.pending if a not in pending_before]
+            if new:
+                self.tools.cancel(s, new, "the reply proposing it was blocked by an output defense")
+                record(s.events, "confirmation", "block", f"cancelled {', '.join(new)}: reply was replaced")
+        return out
+
     def _chat(self, conv: Conversation, message: str) -> TurnResult:
         s, calls = conv.session, []
+        pending_before = set(s.pending)
         s.messages[0]["content"] = self.defenses.begin_turn(s.prompt)
         text, refusal = self.defenses.on_user_message(message, s.events)
         s.messages.append({"role": "user", "content": text})
@@ -219,7 +235,7 @@ class Agent:
                                    "content": self.defenses.render_tool(c.name, result)})
 
         if refusal is None:
-            reply = self.defenses.on_reply(reply, text, s)
+            reply = self._filter_reply(reply, text, s, pending_before)
         s.messages.append({"role": "assistant", "content": reply})   # the filtered reply: what the customer saw
         conv.turns.append({"role": "assistant", "content": reply, "tool_calls": [c.name for c in calls]})
         conv.tool_calls += calls

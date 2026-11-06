@@ -12,7 +12,9 @@ With confirm_side_effects on, a side-effect tool does not run when the model
 calls it: it returns a pending action, and only SupportTools.confirm, called
 by the API client (POST /confirm, a button the customer presses), executes it.
 The model can't confirm on the customer's behalf, and a "yes" typed in the chat
-is not a confirmation.
+is not a confirmation. If an output defense replaces the reply that proposed an
+action, the agent cancels it (SupportTools.cancel): a refusal never sits above
+a working Confirm button.
 
 Every call goes through ToolPolicy.check first. The base policy allows
 everything (the baseline); defenses/policy.py chains the switchable rules
@@ -50,6 +52,7 @@ class Session:
     events: list[dict] = field(default_factory=list)       # what each defense layer did (see defenses/__init__)
     prompt: str = ""                                       # the rendered system prompt, before per-turn notes
     pending: dict[str, dict] = field(default_factory=dict)  # action_id -> {"tool", "args"} awaiting a confirm
+    cancelled: dict[str, str] = field(default_factory=dict)  # action_id -> why it can no longer be confirmed
 
 
 class ToolPolicy:
@@ -158,9 +161,17 @@ class SupportTools:
                 "message": "Not done yet. The customer must press Confirm in the chat window for this to happen. "
                            "Tell them exactly what will happen and ask them to press Confirm."}
 
+    def cancel(self, session: Session, action_ids: list[str], why: str) -> None:
+        """Withdraw pending actions so no later confirm can run them."""
+        for action_id in action_ids:
+            if session.pending.pop(action_id, None) is not None:
+                session.cancelled[action_id] = why
+
     def confirm(self, session: Session, action_id: str) -> Any:
         """Run a pending action. Called by the API client, never by the model. Policy is checked again, since
         the world may have changed since the action was proposed."""
+        if action_id in session.cancelled:
+            return {"error": f"action {action_id} was cancelled: {session.cancelled[action_id]}"}
         action = session.pending.pop(action_id, None)
         if action is None:
             return {"error": f"no pending action {action_id}"}

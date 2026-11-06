@@ -8,6 +8,8 @@ from redline.agent.agent import Agent
 from redline.agent.tools import PENDING, Session, SupportTools
 from redline.api import create_app
 from redline.config import Config
+from redline.defenses.guard import LlamaGuard
+from redline.defenses.pipeline import REFUSAL, Defenses
 from redline.defenses.policy import EgressRule, PolicyChain, RefundRules, SessionAuthz, build_policy
 from redline.store.store import AUTO_REFUND_LIMIT, Store
 
@@ -166,6 +168,29 @@ def test_api_confirm_executes_the_pending_action(kb_retriever):
         assert r.status_code == 200 and c.get("/effects").json()["cancellations"] == [PENDING_COD]
         assert c.post("/confirm", json={"session_id": "s", "customer_id": "C0001",
                                         "action_id": action}).status_code == 404
+
+
+def test_a_replaced_reply_cancels_that_turns_pending_actions(kb_retriever):
+    """The guard refuses the reply, so the action proposed in the same turn must not stay confirmable."""
+    def guard_chat(messages):                       # input safe, reply unsafe
+        return "unsafe\nS6" if messages[-1]["role"] == "assistant" else "safe"
+
+    llm = ScriptedLLM([call("cancel_order", order_id=PENDING_COD, reason="mistake")], "Please press Confirm.",
+                      [call("cancel_order", order_id=PENDING_COD, reason="mistake")], "Please press Confirm.")
+    cfg = _cfg(confirm_side_effects=True, guard_llm=True)
+    a = Agent(cfg, Store(), kb_retriever, llm=llm,
+              defenses=Defenses(cfg, guard=LlamaGuard("g", "http://x", chat=guard_chat)))
+    t = a.chat("s", ME, "cancel my order please")
+    s = a.conversations["s"].session
+    held = t.tool_calls[0].result["action_id"]
+    assert t.reply == REFUSAL and s.pending == {} and held in s.cancelled
+    assert {"layer": "confirmation", "action": "block"}.items() <= s.events[-1].items()
+    assert "cancelled" in a.confirm("s", ME, held)["error"]
+    assert a.store.effects.cancellations == []
+
+    a.defenses.guard = None                         # a later, unblocked turn holds its action as usual
+    t2 = a.chat("s", ME, "cancel it")
+    assert list(s.pending) == [t2.tool_calls[0].result["action_id"]]
 
 
 # ----- wiring -----
