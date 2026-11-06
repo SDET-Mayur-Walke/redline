@@ -36,6 +36,12 @@ class ChatIn(BaseModel):
     message: str
 
 
+class ConfirmIn(BaseModel):
+    session_id: str
+    customer_id: str
+    action_id: str
+
+
 class AskIn(BaseModel):
     query: str
 
@@ -96,6 +102,15 @@ def create_app(cfg: Config | None = None, store: Store | None = None, retriever=
             raise HTTPException(409, str(e)) from None
         return ChatOut(reply=t.reply, citations=t.citations, steps=t.steps, stopped=t.stopped, usage=t.usage,
                        tool_calls=[ToolCallOut(name=c.name, args=c.args, result=c.result) for c in t.tool_calls])
+
+    @app.post("/confirm")
+    def confirm(body: ConfirmIn, request: Request) -> dict:
+        """The customer's Confirm button: the only way a pending side effect (confirm_side_effects) executes."""
+        try:
+            result = agent(request).confirm(body.session_id, body.customer_id, body.action_id)
+        except ValueError as e:
+            raise HTTPException(404, str(e)) from None
+        return {"action_id": body.action_id, "result": result}
 
     @app.post("/reset")
     def reset(request: Request) -> dict:

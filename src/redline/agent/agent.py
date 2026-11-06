@@ -24,6 +24,7 @@ from agentproof import ToolCall, Transcript
 from redline.agent.tools import SCHEMAS, Session, SupportTools, ToolPolicy
 from redline.config import ROOT, Config
 from redline.defenses.pipeline import Defenses
+from redline.defenses.policy import build_policy
 from redline.store.store import AUTO_REFUND_LIMIT, RETURN_WINDOW_DAYS, Store
 
 PROMPTS = ROOT / "prompts"
@@ -122,7 +123,8 @@ class Agent:
         self.cfg, self.store, self.retriever = cfg, store, retriever
         self.llm = llm or LiteLLMChat(cfg)
         self.defenses = defenses or Defenses(cfg)
-        self.tools = SupportTools(store, retriever, cfg.retrieval.index_metadata, policy, transport)
+        self.tools = SupportTools(store, retriever, cfg.retrieval.index_metadata, policy or build_policy(cfg, store),
+                                  transport, cfg.defenses.confirm_side_effects)
         self.conversations: dict[str, Conversation] = {}
         self._lock = threading.Lock()   # one store, one local model: serialise turns
 
@@ -147,6 +149,21 @@ class Agent:
     def chat(self, session_id: str, customer_id: str, message: str) -> TurnResult:
         with self._lock:
             return self._chat(self.conversation(session_id, customer_id), message)
+
+    def confirm(self, session_id: str, customer_id: str, action_id: str):
+        """The customer pressed Confirm on a pending action. Runs it, records the call, and tells the model."""
+        with self._lock:
+            conv = self.conversations.get(session_id)
+            if conv is None or conv.session.customer_id != customer_id:
+                raise ValueError(f"no session {session_id} for this customer")
+            s = conv.session
+            action = s.pending.get(action_id)
+            result = self.tools.confirm(s, action_id)
+            if action is not None:
+                conv.tool_calls.append(ToolCall(action["tool"], action["args"], result))
+                s.messages.append({"role": "system", "content": f"The customer pressed Confirm on {action_id} "
+                                   f"({action['tool']}). Result: {json.dumps(result, default=str)[:500]}"})
+            return result
 
     def _auto_search(self, s: Session, message: str):
         """Run search_help_center for the user's message and insert it as if the model had called it."""

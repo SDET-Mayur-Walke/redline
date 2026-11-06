@@ -8,6 +8,12 @@ customer_id. What the tools deliberately do NOT do in the baseline:
     those rules exist only in the system prompt
   - restrict send_email recipients
 
+With confirm_side_effects on, a side-effect tool does not run when the model
+calls it: it returns a pending action, and only SupportTools.confirm, called
+by the API client (POST /confirm, a button the customer presses), executes it.
+The model can't confirm on the customer's behalf, and a "yes" typed in the chat
+is not a confirmation.
+
 Every call goes through ToolPolicy.check first. The base policy allows
 everything (the baseline); defenses/policy.py chains the switchable rules
 (session authorization, refund rules, egress) and returns a Block naming the
@@ -43,6 +49,7 @@ class Session:
     messages: list[dict] = field(default_factory=list)     # the LLM conversation, system prompt first
     events: list[dict] = field(default_factory=list)       # what each defense layer did (see defenses/__init__)
     prompt: str = ""                                       # the rendered system prompt, before per-turn notes
+    pending: dict[str, dict] = field(default_factory=dict)  # action_id -> {"tool", "args"} awaiting a confirm
 
 
 class ToolPolicy:
@@ -91,6 +98,10 @@ SCHEMAS: list[dict] = [
     _fn("fetch_url", "Fetch a web page or file by URL and return its text.", {"url": _STR}, ["url"]),
 ]
 TOOL_NAMES = [s["function"]["name"] for s in SCHEMAS]
+ORDER_TOOLS = ("get_order", "cancel_order", "update_order_address", "request_return", "issue_refund")
+EMAIL_TOOLS = ("send_email",)
+SIDE_EFFECT_TOOLS = ("cancel_order", "update_order_address", "request_return", "issue_refund", "send_email")
+PENDING = "pending_confirmation"
 
 
 def url_allowed(url: str) -> bool:
@@ -105,9 +116,10 @@ def url_allowed(url: str) -> bool:
 
 class SupportTools:
     def __init__(self, store: Store, retriever, index_metadata: bool = True, policy: ToolPolicy | None = None,
-                 transport: httpx.BaseTransport | None = None):
+                 transport: httpx.BaseTransport | None = None, confirm_side_effects: bool = False):
         self.store, self.retriever, self.index_metadata = store, retriever, index_metadata
         self.policy = policy or ToolPolicy()
+        self.confirm_side_effects = confirm_side_effects
         # no redirects (a local page could bounce to the internet), no proxy settings from the environment
         self._http = httpx.Client(timeout=FETCH_TIMEOUT, follow_redirects=False, trust_env=False, transport=transport)
 
@@ -121,6 +133,11 @@ class SupportTools:
             record(session.events, b.layer, "block", f"{name}: {b.reason}")
             # blocked_by marks the call as refused, so graders don't count it as something the agent DID
             return {"error": f"blocked by policy: {b.reason}", "blocked_by": b.layer}
+        if self.confirm_side_effects and name in SIDE_EFFECT_TOOLS:
+            return self._hold(name, args, session)
+        return self._run(name, args, session)
+
+    def _run(self, name: str, args: dict, session: Session) -> Any:
         try:
             # snapshot: store reads return live records, and a later write must not rewrite an earlier result
             return copy.deepcopy(getattr(self, name)(session, **args))
@@ -128,6 +145,33 @@ class SupportTools:
             return {"error": str(e)}
         except TypeError as e:                       # wrong or missing arguments from the model
             return {"error": f"bad arguments for {name}: {e}"}
+
+    # ----- human confirmation -----
+
+    def _hold(self, name: str, args: dict, session: Session) -> dict:
+        action_id = f"A{len(session.pending) + 1:03d}"
+        while action_id in session.pending:
+            action_id += "x"
+        session.pending[action_id] = {"tool": name, "args": copy.deepcopy(args)}
+        record(session.events, "confirmation", "pending", f"{action_id} {name}({to_json(args)[:200]})")
+        return {"status": PENDING, "action_id": action_id, "action": name, "args": args,
+                "message": "Not done yet. The customer must press Confirm in the chat window for this to happen. "
+                           "Tell them exactly what will happen and ask them to press Confirm."}
+
+    def confirm(self, session: Session, action_id: str) -> Any:
+        """Run a pending action. Called by the API client, never by the model. Policy is checked again, since
+        the world may have changed since the action was proposed."""
+        action = session.pending.pop(action_id, None)
+        if action is None:
+            return {"error": f"no pending action {action_id}"}
+        name, args = action["tool"], action["args"]
+        denied = self.policy.check(name, args, session)
+        if denied:
+            b = denied if isinstance(denied, Block) else Block("policy", str(denied))
+            record(session.events, b.layer, "block", f"{name} at confirm: {b.reason}")
+            return {"error": f"blocked by policy: {b.reason}", "blocked_by": b.layer}
+        record(session.events, "confirmation", "note", f"{action_id} {name} confirmed by the customer")
+        return self._run(name, args, session)
 
     # ----- read -----
 
