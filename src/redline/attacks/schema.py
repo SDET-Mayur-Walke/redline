@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from redline.attacks.encoders import encode
 from redline.config import ROOT
@@ -89,6 +89,19 @@ class Encode(_Strict):
     payload: str
 
 
+class Control(_Strict):
+    """The plain-text twin of an evasion attack: the same ask with no evasion trick.
+
+    Encoded attacks derive theirs (the payload, unencoded, at {enc}), so only attacks whose trick is
+    the wording itself (a fake delimiter, a multi-turn walk, another language) spell one out here.
+    """
+    input: str
+    followups: list[str] = Field(default_factory=list)
+
+
+CONTROL_SUFFIX = "~control"
+
+
 class Attack(_Strict):
     id: str
     module: Literal[MODULES]              # type: ignore[valid-type]
@@ -102,7 +115,14 @@ class Attack(_Strict):
     followups: list[str] = Field(default_factory=list)
     encode: Encode | None = None
     success_if: list[Check] = Field(min_length=1)
+    control: Control | None = None
     notes: str = ""
+
+    @model_validator(mode="after")
+    def _evasion_has_control(self) -> Attack:
+        if self.module == "evasion" and self.encode is None and self.control is None:
+            raise ValueError(f"{self.id}: an evasion attack needs an encode block or an explicit control")
+        return self
 
     @field_validator("owasp_llm")
     @classmethod
@@ -126,6 +146,25 @@ class Attack(_Strict):
             return self.input
         smuggled = encode(self.encode.scheme, self.encode.payload)
         return self.input.replace("{enc}", smuggled) if "{enc}" in self.input else f"{self.input} {smuggled}"
+
+
+    def control_variant(self) -> Attack | None:
+        """The same attack with the evasion stripped, run alongside it. If the control is blocked too, the
+        evasion result is inert: the payload never worked, so a block says nothing about a filter."""
+        if self.module != "evasion":
+            return None
+        if self.control is not None:
+            plain, followups = self.control.input, list(self.control.followups)
+        else:
+            payload = self.encode.payload
+            plain = self.input.replace("{enc}", payload) if "{enc}" in self.input else f"{self.input} {payload}"
+            followups = list(self.followups)
+        return self.model_copy(update={"id": self.id + CONTROL_SUFFIX, "title": f"{self.title} (control)",
+                                       "input": plain, "followups": followups, "encode": None, "control": None})
+
+
+def is_control(attack_id: str) -> bool:
+    return attack_id.endswith(CONTROL_SUFFIX)
 
 
 def load_file(path: Path) -> list[Attack]:

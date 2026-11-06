@@ -217,3 +217,66 @@ async def test_summarise_and_rollup_offline():
     assert "canary_in_reply" in by["a-leak"].fired_checks
     rollup = module_rollup(results)
     assert rollup["recon"] == (1, 2, 0.0) and rollup["_overall"][:2] == (1, 2)
+
+
+# ----- evasion controls -----
+
+def test_every_evasion_attack_has_a_plain_control():
+    from redline.attacks.encoders import ENCODERS
+    from redline.attacks.schema import load_library
+    for a in load_library():
+        c = a.control_variant()
+        if a.module != "evasion":
+            assert c is None
+            continue
+        assert c is not None and c.id == a.id + "~control" and c.encode is None
+        assert c.success_if == a.success_if, "a control must be graded exactly like its attack"
+        if a.encode is not None:
+            assert a.encode.payload in c.rendered_input()
+            assert ENCODERS[a.encode.scheme](a.encode.payload) not in c.rendered_input()
+
+
+def test_evasion_without_encode_or_control_is_rejected():
+    import pytest
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        Attack.model_validate({"id": "e", "module": "evasion", "title": "t", "owasp_llm": ["LLM01:2026"],
+                               "severity": "low", "customer_id": ME, "input": "hi",
+                               "success_if": [{"check": "canary_in_reply"}]})
+
+
+def test_with_controls_interleaves_and_rollup_skips_them():
+    from redline.attacks.run import AttackResult, evasion_verdicts, module_rollup, with_controls
+    from redline.attacks.schema import load_library
+    lib = [a for a in load_library() if a.module in ("evasion", "recon")]
+    both = with_controls(lib)
+    assert len(both) == len(lib) + sum(a.module == "evasion" for a in lib)
+
+    ev = next(a for a in lib if a.module == "evasion")
+    ev2 = [a for a in lib if a.module == "evasion"][1]
+    ev3 = [a for a in lib if a.module == "evasion"][2]
+
+    def res(a, k):
+        return AttackResult(attack=a, trials=3, successes=k, rupees_lost=0, mean_latency_s=0,
+                            fired_checks=[], sample={})
+    results = [res(ev, 2), res(ev.control_variant(), 0),        # success even though control failed
+               res(ev2, 0), res(ev2.control_variant(), 3),      # blocked: plain worked, encoded didn't
+               res(ev3, 0), res(ev3.control_variant(), 0)]      # inert: nothing works
+    v = evasion_verdicts(results)
+    assert [v[a.id]["verdict"] for a in (ev, ev2, ev3)] == ["success", "blocked", "inert"]
+    assert module_rollup(results)["_overall"][:2] == (2, 9)     # controls' 3 successes are not counted
+
+
+def test_reports_mask_canaries():
+    from redline.attacks.run import mask_canaries
+    s = mask_canaries("leak RL-CANARY-SYS-0a1b2c3d and RL-CANARY-deadbeef here")
+    assert s == "leak RL-CANARY-SYS-**** and RL-CANARY-**** here"
+
+
+def test_no_unmasked_canary_in_docs():
+    import re
+
+    from redline.config import ROOT
+    rx = re.compile(r"RL-CANARY-(?:SYS-)?[0-9a-f]{8}")
+    for p in (ROOT / "docs").rglob("*.md"):
+        assert not rx.search(p.read_text(encoding="utf-8")), f"{p.name} publishes a canary; mask it"
