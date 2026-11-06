@@ -22,7 +22,7 @@ full measurement, run on one commit after steps 12 and 13. Order: 9, 10, 12, 13,
 - [x] **10. Benign suite**: about 40 legitimate support tasks, graded on the final store state, to measure what each defense costs. Ends with a smoke check only.
 
 ## v0.4: the showcase
-- [ ] **12. CI gate**: deterministic canary probes against a stub model; fail the build if attack success regresses.
+- [x] **12. CI gate**: deterministic canary probes against a stub model; fail the build if attack success regresses.
 - [ ] **13. Demo**: Streamlit chat with citations, a vulnerable/hardened switch, and a live exfil-sink and outbox panel.
 - [ ] **11. Full measurement** (after 12 and 13, on one commit): the hardened attack run, the benign suite on both configs, and a per-defense ablation (each defense on its own, then all together): attack success, task success, latency.
 - [ ] **14. Write-up**: README results table, threat model, OWASP mapping, "what broke".
