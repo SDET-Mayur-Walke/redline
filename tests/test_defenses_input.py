@@ -172,3 +172,13 @@ def test_default_config_has_every_defense_off():
     cfg = load_config(DEFAULT_CONFIG)
     assert not any(cfg.switches().values()) and cfg.mode == "vulnerable"
     assert _cfg(spotlight=True).mode == "partial"
+
+
+def test_hardened_config_turns_every_switch_on():
+    from redline.config import ROOT, load_config
+
+    cfg = load_config(ROOT / "configs" / "hardened.yaml")
+    assert all(cfg.switches().values()) and cfg.mode == "hardened"
+    assert cfg.defenses.egress_allowlist == ["localhost:8000", "127.0.0.1:8000"]
+    default = load_config(ROOT / "configs" / "default.yaml")
+    assert cfg.models == default.models and cfg.agent == default.agent        # only the defenses differ

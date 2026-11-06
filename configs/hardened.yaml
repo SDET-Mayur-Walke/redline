@@ -1,0 +1,45 @@
+# Every defense on: the hardened config. Same models, prompt and retrieval as default.yaml (staff_filter aside), so a diff
+# between the two runs is the defenses and nothing else.
+models:
+  agent: qwen3:8b
+  judge: qwen2.5:7b
+  embed: nomic-embed-text
+  ollama_base_url: http://localhost:11434
+
+retrieval:
+  qdrant_path: data/qdrant
+  collection: kb
+  chunk_tokens: 150
+  max_chunk_tokens: 500
+  embed_batch: 32
+  top_k_prefetch: 20
+  top_k: 5
+  rrf_k: 60
+  sparse_model: Qdrant/bm25
+  rerank: true            # see docs/results/retrieval.md: halves staff-doc leak, raises MRR, ~160 ms/query
+  reranker_model: Xenova/ms-marco-MiniLM-L-6-v2
+  index_metadata: true    # metadata is indexed text: an attack surface on purpose
+  staff_filter: true      # permission defense: staff-only docs never come back from a search
+
+agent:
+  prompt: support_v3      # v2 plus a system-prompt canary; v1/v2 kept for comparison
+  temperature: 0.2
+  max_steps: 8
+  num_ctx: 16384
+  think: false
+  auto_retrieve: true     # retrieved docs reach the model every turn (RAG); widens the injection surface, see config.py
+  timeout: 180.0
+
+defenses:                 # every layer on (see src/redline/defenses/)
+  unicode_normalize: true
+  injection_classifier: true
+  injection_threshold: 0.9
+  guard_llm: true
+  ingestion_scanner: true
+  spotlight: true
+  tool_authz: true
+  refund_rules: true
+  confirm_side_effects: true
+  egress_filter: true
+  egress_allowlist: ["localhost:8000", "127.0.0.1:8000"]   # the app itself; no other local listener
+  output_filter: true
