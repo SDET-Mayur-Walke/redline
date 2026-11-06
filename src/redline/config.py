@@ -31,14 +31,14 @@ class ModelsConfig(_Strict):
 class RetrievalConfig(_Strict):
     qdrant_path: str = "data/qdrant"          # relative to the repo root; ":memory:" for tests
     collection: str = "kb"
-    chunk_tokens: int = Field(400, ge=50)     # greedy target when merging heading sections
+    chunk_tokens: int = Field(150, ge=50)     # greedy target when merging heading sections; ~1 section per chunk
     max_chunk_tokens: int = Field(500, ge=50)  # sections longer than this are split at paragraphs
     embed_batch: int = Field(32, ge=1)
     top_k_prefetch: int = Field(20, ge=1)     # candidates from each of dense and sparse before fusion
     top_k: int = Field(5, ge=1)
     rrf_k: int = Field(60, ge=1)
     sparse_model: str = "Qdrant/bm25"
-    rerank: bool = True
+    rerank: bool = False                      # +~370 ms/query, no gain on our eval; kept for ablation
     reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
     index_metadata: bool = True               # vulnerable: author/title/source are embedded and searchable
     staff_filter: bool = False                # vulnerable: staff-only docs can be retrieved

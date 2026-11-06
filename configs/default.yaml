@@ -8,14 +8,14 @@ models:
 retrieval:
   qdrant_path: data/qdrant
   collection: kb
-  chunk_tokens: 400
+  chunk_tokens: 150
   max_chunk_tokens: 500
   embed_batch: 32
   top_k_prefetch: 20
   top_k: 5
   rrf_k: 60
   sparse_model: Qdrant/bm25
-  rerank: true
+  rerank: false           # see docs/results/retrieval.md: slower, no gain here
   reranker_model: Xenova/ms-marco-MiniLM-L-6-v2
   index_metadata: true    # metadata is indexed text: an attack surface on purpose
   staff_filter: false     # permission defense; off means staff docs are retrievable

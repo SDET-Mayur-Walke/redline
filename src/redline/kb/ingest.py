@@ -2,7 +2,8 @@
 
 Chunks follow the Markdown headings: consecutive sections are merged up to
 about `chunk_tokens`, and a section longer than `max_chunk_tokens` is split at
-paragraph breaks. Help articles are short, so most become one or two chunks.
+paragraph breaks. With the default 150, most chunks are one heading section, so
+a citation points at the section that answers, not the whole article.
 
 Every chunk carries the document's metadata. With `index_metadata` on (the
 vulnerable default) that metadata is also prepended to the text that gets
@@ -91,7 +92,7 @@ def _split_long(text: str, max_tokens: int) -> list[str]:
     return parts + [cur] if cur else parts
 
 
-def chunk_document(doc: Document, chunk_tokens: int = 400, max_chunk_tokens: int = 500) -> list[Chunk]:
+def chunk_document(doc: Document, chunk_tokens: int = 150, max_chunk_tokens: int = 500) -> list[Chunk]:
     pieces: list[tuple[str, str]] = []                  # (section name, text) after splitting long sections
     for name, text in sections(doc.text):
         pieces += [(name, p) for p in _split_long(text, max_chunk_tokens)]
@@ -109,7 +110,7 @@ def chunk_document(doc: Document, chunk_tokens: int = 400, max_chunk_tokens: int
             for i, (name, text) in enumerate(merged)]
 
 
-def chunk_documents(docs: list[Document], chunk_tokens: int = 400, max_chunk_tokens: int = 500) -> list[Chunk]:
+def chunk_documents(docs: list[Document], chunk_tokens: int = 150, max_chunk_tokens: int = 500) -> list[Chunk]:
     return [c for d in docs for c in chunk_document(d, chunk_tokens, max_chunk_tokens)]
 
 
