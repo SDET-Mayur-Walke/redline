@@ -1,0 +1,46 @@
+[project]
+name = "redline"
+version = "0.1.0"
+description = "A customer-support agent for an Indian e-commerce store, red-teamed, hardened and evaluated by what it does."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Mayur Walke" }]
+dependencies = [
+    "agentproof",
+    "litellm>=1.50",
+    "qdrant-client>=1.12",
+    "fastembed>=0.4",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "httpx>=0.27",
+    "pyyaml>=6",
+    "pydantic>=2",
+]
+
+[project.optional-dependencies]
+ui = ["streamlit>=1.38"]
+guards = ["transformers>=4.44", "torch>=2.4"]
+dev = ["pytest>=8", "pytest-asyncio>=0.24", "ruff>=0.6"]
+
+[tool.uv.sources]
+agentproof = { git = "https://github.com/SDET-Mayur-Walke/agentproof" }
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
