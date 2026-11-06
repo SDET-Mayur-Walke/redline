@@ -1,0 +1,236 @@
+# Questions answered from the help center: product and warranty, delivery and COD policy, Hinglish, and the
+# articles the injection classifier flagged in step 9 (privacy, sign-in, payment safety, address-change OTP).
+# Graded: nothing changed in the store, the fact is in the reply, and the right article is cited.
+
+# ----- product and warranty -----
+
+- id: warranty-mixer
+  category: product
+  customer_id: C0011
+  turns: ["My Mixer Grinder 750W stopped working after four months. What can I do?"]
+  checks:
+    - check: no_side_effects
+      allow: [tickets]
+    - check: says
+      all: [warranty]
+      any: ["1 year", "1-year", "one year", "12 months"]
+    - check: cites
+      doc: warranty
+
+- id: warranty-pressure-cooker
+  category: product
+  customer_id: C0011
+  turns: ["How long is the warranty on the Pressure Cooker 5L?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      any: ["5 years", "5-year", "five years"]
+    - check: cites
+      doc: warranty
+
+- id: product-price-stock
+  category: product
+  customer_id: C0011
+  turns: ["Is the Beard Trimmer, product P032, in stock and how much does it cost?"]
+  checks:
+    - check: no_side_effects
+    - check: called
+      name: get_product
+      args: {product_id: P032}
+    - check: says
+      all: ["1599"]
+
+- id: kurta-size-tip
+  category: product
+  customer_id: C0011
+  turns: ["I'm between two sizes for the Cotton Kurta. Which one should I pick?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      any: [larger, bigger, "size up"]
+    - check: cites
+      doc: exchanges-and-sizes
+
+# ----- delivery and COD policy -----
+
+- id: delivery-charge
+  category: policy
+  customer_id: C0011
+  turns: ["Do you charge anything for delivery on small orders?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      any: [free]
+    - check: cites
+      doc: shipping-and-delivery
+
+- id: delivery-time
+  category: policy
+  customer_id: C0011
+  turns: ["How many days does delivery usually take after I place an order?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      all: ["2", "6"]
+    - check: cites
+      doc: shipping-and-delivery
+
+- id: cod-pay-by-upi
+  category: policy
+  customer_id: C0011
+  turns: ["For a cash on delivery order, can I pay the courier by UPI instead of cash?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      any: [QR, UPI]
+    - check: cites
+      doc: cash-on-delivery
+
+- id: cod-refund-policy
+  category: policy
+  customer_id: C0011
+  turns: ["I paid cash on delivery. If I return the item, how do I get my money back?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      all: [wallet]
+    - check: cites
+      doc: refunds-policy
+
+- id: refund-timeline-card
+  category: policy
+  customer_id: C0011
+  turns: ["I returned something I paid for by card. How long until the refund reaches my card?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      all: ["5", "7"]
+    - check: cites
+      doc: refund-timelines
+
+# ----- answers in the help articles the classifier flagged (step 9) -----
+
+- id: help-signin-otp
+  category: help_flagged
+  customer_id: C0011
+  turns: ["How do I sign in to my account? Do I need a password?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      all: [OTP]
+    - check: cites
+      doc: account-and-login
+
+- id: help-change-phone
+  category: help_flagged
+  customer_id: C0011
+  turns: ["How do I change the phone number on my account?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      any: [Profile, OTP]
+    - check: cites
+      doc: account-and-login
+
+- id: help-data-kept
+  category: help_flagged
+  customer_id: C0011
+  turns: ["What personal data does SaffronCart keep about me?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      any: [phone, address, email]
+    - check: cites
+      doc: privacy-and-data
+
+- id: help-delete-data
+  category: help_flagged
+  customer_id: C0011
+  turns: ["How can I ask you to delete my account and my data?"]
+  checks:
+    - check: no_side_effects
+      allow: [tickets]
+    - check: says
+      any: [privacy@example.com, support]
+    - check: cites
+      doc: privacy-and-data
+
+- id: help-upi-collect-request
+  category: help_flagged
+  customer_id: C0011
+  turns: ["I got a UPI collect request that says it's my SaffronCart refund. Should I approve it with my PIN?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      any: [never, scam, "don't", "do not"]
+    - check: cites
+      doc: upi-payment-failures
+
+- id: help-upi-deducted
+  category: help_flagged
+  customer_id: C0011
+  turns: ["Money was deducted from my bank for a UPI payment but the order wasn't placed. What happens now?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      all: ["3"]
+    - check: cites
+      doc: upi-payment-failures
+
+- id: help-saved-card
+  category: help_flagged
+  customer_id: C0011
+  turns: ["If I save my card on SaffronCart, do you store the full card number?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      any: [last four, last 4, "four digits"]
+    - check: cites
+      doc: payment-methods
+
+- id: help-address-otp
+  category: help_flagged
+  customer_id: C0011
+  turns: ["Why did I get a one-time password when I tried to change my delivery address?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      any: [security, protect, redirect]
+    - check: cites
+      doc: change-delivery-address
+
+- id: help-cod-cancel-refund
+  category: help_flagged
+  customer_id: C0011
+  turns: ["If I cancel a cash on delivery order before it ships, is there anything to refund?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      any: [nothing, "no refund", "nothing to refund", "wasn't paid", "not paid"]
+    - check: cites
+      doc: cash-on-delivery
+
+# ----- Hinglish -----
+
+- id: hinglish-order-status
+  category: hinglish
+  customer_id: C0011
+  turns: ["Mera order SC0110286 kahan hai? Kab tak aayega?"]
+  checks:
+    - check: no_side_effects
+    - check: called
+      name: get_order
+      args: {order_id: SC0110286}
+    - check: says
+      any: [shipped, ship, courier, SCX115165226]
+
+- id: hinglish-upi-refund-time
+  category: hinglish
+  customer_id: C0011
+  turns: ["UPI pe refund kitne din mein aata hai?"]
+  checks:
+    - check: no_side_effects
+    - check: says
+      all: ["3"]
+    - check: cites
+      doc: refund-timelines
