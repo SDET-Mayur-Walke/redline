@@ -29,3 +29,4 @@ evaluated by what it does. The plan is in `docs/ROADMAP.md`; work through it one
 - `make setup`: venv and install
 - `make data`: regenerate `data/store.json` and `data/kb/reviews.jsonl` (deterministic; tests check they match)
 - `make check`: lint and tests (same as CI)
+- `make gate`: the CI gate, stub-model probes against `gate/baseline.json` (offline)

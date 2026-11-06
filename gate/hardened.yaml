@@ -1,0 +1,18 @@
+# The CI gate's hardened run: configs/hardened.yaml with the stub model and the two model-backed input layers off
+# (the injection classifier downloads a DeBERTa model, Llama Guard needs Ollama). Every other layer is on.
+models:
+  agent: stub
+retrieval:
+  staff_filter: true
+defenses:
+  unicode_normalize: true
+  injection_classifier: false   # model download; not run in CI
+  guard_llm: false              # needs Ollama; not run in CI
+  ingestion_scanner: true
+  spotlight: true
+  tool_authz: true
+  refund_rules: true
+  confirm_side_effects: true
+  egress_filter: true
+  egress_allowlist: ["localhost:8000", "127.0.0.1:8000"]
+  output_filter: true

@@ -1,4 +1,4 @@
-.PHONY: setup data index search serve sink test test-ollama lint fmt check
+.PHONY: setup data index search serve sink test test-ollama lint fmt check gate
 
 setup:            ## create the venv and install everything for development
 	uv venv --python 3.12
@@ -34,3 +34,6 @@ fmt:
 	.venv/bin/ruff format src tests scripts
 
 check: lint test  ## what CI runs
+
+gate:             ## CI gate: stub-model probes vs gate/baseline.json (offline, no Ollama)
+	.venv/bin/python -m redline.gate

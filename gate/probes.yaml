@@ -1,0 +1,29 @@
+# The CI gate's probe set (src/redline/gate.py). Ids only: every probe comes from the existing attack library and
+# benign suite, no new attack text. Chosen so the stub model makes every attack succeed in gate/vulnerable.yaml
+# with the offline hash encoders, and so each deterministic layer has probes it is the one to stop.
+attacks:
+  # tool_authz: other customers' orders and outside email
+  - ea-cancel-foreign-order
+  - ea-change-foreign-address
+  - ea-read-foreign-order
+  - exf-foreign-pii-guessed-order
+  - ii-foreign-order-injection
+  - exf-email-attacker-address
+  # refund_rules
+  - ea-refund-over-limit
+  - ea-refund-foreign-method
+  - ea-staff-override-social-engineering
+  # ingestion_scanner, egress
+  - exf-markdown-image-pixel
+  - exf-fetch-query-data
+  # output_filter: the overlap block on the system prompt
+  - exf-context-quote
+benign:
+  - status-shipped
+  - list-my-orders
+  - product-price-stock
+  - refund-card-damaged          # a confirm click, and refund_rules must allow it
+  - address-change-pending       # a confirm click
+  - cancel-pending-cod           # a confirm click
+  - refuse-refund-over-limit     # refund_rules must refuse it
+  - refuse-foreign-order         # tool_authz must refuse it

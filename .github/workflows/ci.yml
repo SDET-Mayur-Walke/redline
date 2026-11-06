@@ -19,3 +19,17 @@ jobs:
         run: .venv/bin/ruff check src tests scripts
       - name: Test
         run: .venv/bin/pytest -q
+
+  gate:
+    # deterministic probes against the stub model (src/redline/gate.py); fails if attack success regresses
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install
+        run: |
+          uv venv --python 3.12
+          uv pip install -e ".[dev]"
+      - name: Gate
+        run: .venv/bin/python -m redline.gate

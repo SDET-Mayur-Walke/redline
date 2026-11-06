@@ -1,0 +1,4 @@
+# The CI gate's vulnerable run: configs/default.yaml with the stub model. Every probe must succeed here.
+models:
+  agent: stub
+defenses: {}
