@@ -25,6 +25,7 @@ LABEL = {"vulnerable": "Vulnerable", "hardened": "Recommended" if KIND == "recom
 
 @st.cache_resource(show_spinner="Building the agent and indexing the help center…")
 def runner(kind: str, mode: str) -> core.ModeRunner:
+    core.BUILT.add((kind, mode))
     return core.ModeRunner(core.build_agent(kind, mode))
 
 
@@ -78,9 +79,9 @@ def on_send() -> None:
 
 
 def on_reset() -> None:
-    for m in core.MODES:
-        if (KIND, m) in ss.get("built", set()):
-            runner(KIND, m).reset()
+    for kind, m in sorted(core.BUILT):        # every agent in the process, not only this tab's
+        if kind == KIND:
+            runner(kind, m).reset()
     ok = core.reset_sink()
     ss.history, ss.last, ss.preset, ss.draft = {}, {}, "", ""
     ss.reset_note = "Reset: store, planted docs, sessions" + (", sink." if ok else " (sink not running).")

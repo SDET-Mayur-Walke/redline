@@ -44,6 +44,9 @@ from redline.sink import HITS_PATH, RESET_PATH, SINK_BASE
 from redline.store.store import Store
 
 MODES = ("vulnerable", "hardened")
+# (kind, mode) of every agent built in this server process. Agents are shared by all browser sessions, so
+# Reset has to reach the ones another tab built too, or a stale planted doc survives it.
+BUILT: set[tuple[str, str]] = set()
 CONFIGS = {"ollama": {"vulnerable": ROOT / "configs" / "default.yaml", "hardened": ROOT / "configs" / "hardened.yaml"},
            "stub": {"vulnerable": ROOT / "gate" / "vulnerable.yaml", "hardened": ROOT / "gate" / "hardened.yaml"},
            # Ollama with the rule's choice on the defended side: the deterministic layers act on screen instead of
