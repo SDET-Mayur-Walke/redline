@@ -3,6 +3,9 @@
 **A customer-support AI agent for an Indian e-commerce store: red-teamed, hardened, and evaluated by what it
 *does*, not only what it says.**
 
+> © 2026 Mayur Walke. Designed, built and measured by Mayur Walke. All rights reserved: the code is published to be
+> read and evaluated, and reusing any part of it needs written permission (see [LICENSE](LICENSE)).
+
 SaffronCart is a fictional online store (₹ prices, UPI / card / COD / wallet, Indian addresses). Its support agent
 answers from a help-center knowledge base (agentic RAG) and acts through tools: look up orders, issue refunds,
 cancel orders, change delivery addresses, email customers, open tickets. That makes it a realistic target. A
