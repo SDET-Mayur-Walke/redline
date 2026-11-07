@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "A customer-support agent for an Indian e-commerce store, red-teamed, hardened and evaluated by what it does."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = { text = "All rights reserved" }
 authors = [{ name = "Mayur Walke" }]
 dependencies = [
     "agentproof",

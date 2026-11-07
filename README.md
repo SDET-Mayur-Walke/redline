@@ -183,4 +183,4 @@ help center's false positives.
 
 ## License
 
-MIT. Built by Mayur Walke.
+All rights reserved. The code is published to be read and evaluated; reuse needs written permission (see [LICENSE](LICENSE)). Built by Mayur Walke.
