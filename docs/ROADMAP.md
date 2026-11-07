@@ -26,7 +26,7 @@ full measurement, run on one commit after steps 12 and 13. Order: 9, 10, 12, 13,
 - [x] **13. Demo**: Streamlit chat with citations, a vulnerable/hardened switch, and a live exfil-sink and outbox panel. See `docs/demo.md`.
 - [x] **11. Full measurement** (after 12 and 13, on one commit): the hardened attack run, the benign suite on both configs, and a per-defense ablation (each defense on its own, then all together): attack success, task success, latency. Plan in `docs/results/ablation_plan.md`, results in `docs/results/ablation.md`, rule output in `configs/recommended.yaml`.
 - [x] Follow-up: confirm recommended.yaml on a fresh, independent 3-trial run. Results in `docs/results/confirmation.md`: attack success 12%, benign pass rate 67% (default 33% and 65%).
-- [ ] **14. Write-up**: README results table, threat model, OWASP mapping, "what broke".
+- [x] **14. Write-up**: README results table, threat model, OWASP mapping, "what broke".
 
 ## Phase 2 (during the LLMOps bootcamp)
 Docker + Trivy, docker compose, Langfuse tracing, MLflow run tracking, Prometheus + Grafana security dashboard,
