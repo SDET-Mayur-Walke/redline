@@ -5,3 +5,7 @@ runs/
 data/qdrant/
 .env
 *.egg-info/
+
+# local agent settings, not part of the project
+.claude/
+CLAUDE.md
