@@ -13,6 +13,12 @@ make demo          # terminal 2: http://127.0.0.1:8501 with Ollama (qwen3:8b, co
 make demo-stub     # or offline: the CI gate's stub model and gate/*.yaml configs, starts in seconds
 ```
 
+`make demo-recommended` runs the same demo with `configs/recommended.yaml` (the pre-registered rule's choice) as
+the defended mode, labelled **Recommended**. Use it for recordings: in `make demo`'s Hardened mode Llama Guard
+usually refuses the message first (it calls "Where is my order SC0102109?" violent crime), so the tool-layer
+defenses never get a turn on screen. The script below works the same with either; `tool_authz`, the scanner, the
+egress filter and the output filter are on in both.
+
 `make demo` builds each mode's agent the first time you open it. That means embedding the help center with
 `nomic-embed-text`, and for Hardened also loading the injection classifier and Llama Guard, so the first switch
 takes a minute. With Ollama a turn takes 10 to 60 s on the M5. The stub answers at once, but it is a gullible

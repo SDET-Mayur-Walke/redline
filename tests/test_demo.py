@@ -181,3 +181,9 @@ def test_app_smoke_with_the_stub(monkeypatch):
     codes = [c.value for c in at.code]
     assert any("SC0100074:" in c and "9 Transit Road" in c for c in codes)            # store effects panel
     assert any("Sink not running" in w.value for w in at.warning)
+
+
+def test_recommended_kind_pairs_default_with_the_rules_config():
+    assert core.CONFIGS["recommended"] == {"vulnerable": core.ROOT / "configs" / "default.yaml",
+                                           "hardened": core.ROOT / "configs" / "recommended.yaml"}
+    assert all(p.exists() for p in core.CONFIGS["recommended"].values())

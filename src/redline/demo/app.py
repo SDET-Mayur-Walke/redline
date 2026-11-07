@@ -20,7 +20,7 @@ from redline.demo import core
 
 st.set_page_config(page_title="redline demo", layout="wide")
 KIND = core.model_kind()
-LABEL = {"vulnerable": "Vulnerable", "hardened": "Hardened"}
+LABEL = {"vulnerable": "Vulnerable", "hardened": "Recommended" if KIND == "recommended" else "Hardened"}
 
 
 @st.cache_resource(show_spinner="Building the agent and indexing the help center…")
@@ -90,7 +90,7 @@ def on_reset() -> None:
 
 with st.sidebar:
     st.title("redline")
-    st.caption(f"SaffronCart support agent · model: **{KIND}**")
+    st.caption(f"SaffronCart support agent · model: **{'stub' if KIND == 'stub' else 'ollama'}**")
     # switching mode re-loads the selected preset into the other agent, so the same attack replays in one click
     st.radio("Mode", core.MODES, key="mode", format_func=LABEL.get, horizontal=True, on_change=on_preset)
     st.caption(f"`{core.config_path(KIND, ss.mode).relative_to(core.ROOT)}`")

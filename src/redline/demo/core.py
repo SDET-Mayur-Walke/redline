@@ -45,7 +45,11 @@ from redline.store.store import Store
 
 MODES = ("vulnerable", "hardened")
 CONFIGS = {"ollama": {"vulnerable": ROOT / "configs" / "default.yaml", "hardened": ROOT / "configs" / "hardened.yaml"},
-           "stub": {"vulnerable": ROOT / "gate" / "vulnerable.yaml", "hardened": ROOT / "gate" / "hardened.yaml"}}
+           "stub": {"vulnerable": ROOT / "gate" / "vulnerable.yaml", "hardened": ROOT / "gate" / "hardened.yaml"},
+           # Ollama with the rule's choice on the defended side: the deterministic layers act on screen instead of
+           # Llama Guard refusing first (configs/recommended.yaml, docs/results/confirmation.md)
+           "recommended": {"vulnerable": ROOT / "configs" / "default.yaml",
+                           "hardened": ROOT / "configs" / "recommended.yaml"}}
 # five existing library attacks, no new attack text: an IDOR, the zero-click image, a prompt leak,
 # a split indirect injection and a refund over the limit
 PRESET_IDS = ("ea-change-foreign-address", "exf-markdown-image-pixel", "rec-sysprompt-direct",

@@ -1,4 +1,4 @@
-.PHONY: setup data index search serve sink demo demo-stub test test-ollama lint fmt check gate ablation confirm
+.PHONY: setup data index search serve sink demo demo-recommended demo-stub test test-ollama lint fmt check gate ablation confirm
 
 setup:            ## create the venv and install everything for development
 	uv venv --python 3.12
@@ -25,6 +25,9 @@ DEMO = .venv/bin/streamlit run src/redline/demo/app.py --server.address 127.0.0.
 
 demo:             ## the Streamlit demo on 127.0.0.1:8501, vulnerable vs hardened (needs Ollama; run make sink too)
 	REDLINE_DEMO_MODEL=ollama $(DEMO)
+
+demo-recommended: ## the demo with configs/recommended.yaml as the defended mode (needs Ollama)
+	REDLINE_DEMO_MODEL=recommended $(DEMO)
 
 demo-stub:        ## the demo offline: the CI gate's stub model and configs, no Ollama
 	REDLINE_DEMO_MODEL=stub $(DEMO)
