@@ -2,6 +2,7 @@
 
     make ablation                         # python -m redline.ablation; resumes where it stopped
     python -m redline.ablation --plan     # print the plan and exit
+    make confirm                          # --confirm: the roadmap follow-up, recommended.yaml alone, to runs/confirm/
 
 The plan and the rule that turns its results into configs/recommended.yaml are fixed in
 docs/results/ablation_plan.md, written before any of these trials ran:
@@ -18,6 +19,10 @@ another commit, so every number in the write-up comes from one commit.
 
 Concurrency is 1 and the configs run one after another, so only one agent (one index, one set of models) is loaded
 at a time on the 16 GB machine.
+
+--confirm is the follow-up the plan promised: configs/recommended.yaml, as the rule wrote it, measured on its own
+fresh trials (attacks + controls x 3, benign x 3). It is a separate measurement on its own commit, so it writes to
+runs/confirm/ and never touches runs/ablation/; the resume, one-commit and dirty-tree rules are the same.
 """
 
 from __future__ import annotations
@@ -48,6 +53,8 @@ from redline.sink import SINK_PORT, Sink, SinkServer
 from redline.store.store import Store
 
 OUT = ROOT / "runs" / "ablation"
+CONFIRM_OUT = ROOT / "runs" / "confirm"
+RECOMMENDED = ROOT / "configs" / "recommended.yaml"
 ALL_SWITCHES = (*SWITCHES, "staff_filter")
 MAIN_TRIALS, ABLATION_TRIALS = 3, 1
 MAX_CONSECUTIVE_ERRORS = 5      # Ollama gone: stop instead of burning the plan on error rows
@@ -97,6 +104,13 @@ def build_plan(configs: list[str], attack_ids: list[str], benign_ids: list[str],
         for kind, ids in (("attack", attack_ids), ("benign", benign_ids)):
             jobs += [Job(3, cfg, kind, i, t) for t in range(1, ablation_trials + 1) for i in ids]
     return jobs
+
+
+def build_confirm_plan(attack_ids: list[str], benign_ids: list[str], trials: int = MAIN_TRIALS) -> list[Job]:
+    """The confirmation run: the recommended config only, attacks then benign, trial-major like phases 1 and 2."""
+    return [Job(phase, "recommended", kind, i, t)
+            for phase, kind, ids in ((1, "attack", attack_ids), (2, "benign", benign_ids))
+            for t in range(1, trials + 1) for i in ids]
 
 
 # ----- provenance -----
@@ -336,7 +350,8 @@ def run(jobs: list[Job], configs: dict[str, Config], out: Path, commit: str,
     return errors
 
 
-def write_manifest(out: Path, commit: str, configs: dict[str, Config], jobs: list[Job]) -> None:
+def write_manifest(out: Path, commit: str, configs: dict[str, Config], jobs: list[Job],
+                   plan: str = "docs/results/ablation_plan.md") -> None:
     out.mkdir(parents=True, exist_ok=True)
     (out / "configs").mkdir(exist_ok=True)
     for name, cfg in configs.items():
@@ -348,7 +363,7 @@ def write_manifest(out: Path, commit: str, configs: dict[str, Config], jobs: lis
     path = out / "manifest.json"
     man = json.loads(path.read_text()) if path.exists() else {"created": datetime.now(UTC).isoformat(
         timespec="seconds")}
-    man |= {"commit": commit, "plan": "docs/results/ablation_plan.md", "trials": len(jobs), "counts": counts,
+    man |= {"commit": commit, "plan": plan, "trials": len(jobs), "counts": counts,
             "configs": {k: v.switches() for k, v in configs.items()},
             "resumed": man.get("resumed", -1) + 1}
     path.write_text(json.dumps(man, indent=2))
@@ -356,17 +371,27 @@ def write_manifest(out: Path, commit: str, configs: dict[str, Config], jobs: lis
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Step 11: the full, resumable measurement.")
-    ap.add_argument("--out", default=str(OUT))
+    ap.add_argument("--out", default=None, help="default runs/ablation, or runs/confirm with --confirm")
+    ap.add_argument("--confirm", action="store_true",
+                    help="the follow-up: configs/recommended.yaml alone, attacks + controls and benign, 3 trials each")
     ap.add_argument("--plan", action="store_true", help="print the plan's counts and exit")
     ap.add_argument("--rule", action="store_true",
                     help="apply the pre-registered rule to <out>/results.jsonl: print its table, write "
                          "configs/recommended.yaml")
     args = ap.parse_args(argv)
+    if args.confirm and args.rule:
+        ap.error("--rule reads the step 11 run; it doesn't apply to --confirm")
+    out = Path(args.out) if args.out else CONFIRM_OUT if args.confirm else OUT
+    if args.confirm and out.resolve() == OUT.resolve():
+        ap.error("--confirm never writes to runs/ablation")
 
     hardened = load_config(ROOT / "configs/hardened.yaml")
-    configs = plan_configs(load_config(ROOT / "configs/default.yaml"), hardened)
+    if args.confirm:
+        configs = {"recommended": load_config(RECOMMENDED)}
+    else:
+        configs = plan_configs(load_config(ROOT / "configs/default.yaml"), hardened)
     if args.rule:
-        rows = [json.loads(x) for x in (Path(args.out) / "results.jsonl").read_text().splitlines() if x.strip()]
+        rows = [json.loads(x) for x in (out / "results.jsonl").read_text().splitlines() if x.strip()]
         result = apply_rule(rows)
         print(rule_table_md(result))
         cfg = recommended_config(hardened, result["recommended"])
@@ -377,7 +402,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"wrote configs/recommended.yaml: {', '.join(result['recommended']) or 'no switch on'}")
         return 0
     attack_ids = [a.id for a in attack_run.with_controls(load_library())]
-    jobs = build_plan(list(configs), attack_ids, [b.id for b in load_tasks()])
+    benign_ids = [b.id for b in load_tasks()]
+    jobs = build_confirm_plan(attack_ids, benign_ids) if args.confirm else build_plan(list(configs), attack_ids,
+                                                                                      benign_ids)
     if args.plan:
         by: dict[tuple, int] = {}
         for j in jobs:
@@ -392,9 +419,9 @@ def main(argv: list[str] | None = None) -> int:
         print("refusing to start: the working tree is dirty. Commit first, so every row names the code it ran.",
               file=sys.stderr)
         return 2
-    out = Path(args.out)
     load_done(out / "results.jsonl", commit)      # rows from another commit stop the run before anything is written
-    write_manifest(out, commit, configs, jobs)
+    write_manifest(out, commit, configs, jobs,
+                   plan="docs/ROADMAP.md (follow-up to step 11)" if args.confirm else "docs/results/ablation_plan.md")
     errors = run(jobs, configs, out, commit)
     return 1 if errors else 0
 

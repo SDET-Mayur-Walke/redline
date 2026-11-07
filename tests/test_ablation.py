@@ -156,3 +156,38 @@ def test_recommended_config_turns_on_exactly_the_rule_switches():
     cfg = ablation.recommended_config(HARD, ["tool_authz", "staff_filter"])
     assert [k for k, v in cfg.switches().items() if v] == ["tool_authz", "staff_filter"]
     assert ablation.recommended_config(HARD, []).mode == "vulnerable"
+
+
+# ----- the confirmation run (roadmap follow-up) -----
+
+def test_confirm_plans_recommended_alone_and_writes_to_runs_confirm(tmp_path, monkeypatch):
+    assert ablation.CONFIRM_OUT == ROOT / "runs" / "confirm" != ablation.OUT
+    seen = {}
+
+    def fake_run(jobs, configs, out, commit, **_):
+        seen.update(jobs=jobs, configs=configs, out=out, commit=commit)
+        return 0
+
+    monkeypatch.setattr(ablation, "CONFIRM_OUT", tmp_path / "confirm")    # keep the real runs/confirm/ untouched
+    monkeypatch.setattr(ablation, "git_state", lambda: ("c0ffee", False))
+    monkeypatch.setattr(ablation, "run", fake_run)
+    assert ablation.main(["--confirm"]) == 0
+
+    jobs, out = seen["jobs"], seen["out"]
+    assert out == tmp_path / "confirm" and (out / "manifest.json").exists()
+    assert list(seen["configs"]) == ["recommended"]
+    rec = load_config(ROOT / "configs/recommended.yaml")
+    assert seen["configs"]["recommended"] == rec and rec.mode == "partial"
+    count = {}
+    for j in jobs:
+        count[(j.config, j.kind)] = count.get((j.config, j.kind), 0) + 1
+    assert count == {("recommended", "attack"): 49 * 3, ("recommended", "benign"): 47 * 3}
+    attack_ids = {j.task_id for j in jobs if j.kind == "attack"}
+    assert len(attack_ids) == 49 and sum("~control" in a for a in attack_ids) == 8
+    assert len({j.key for j in jobs}) == len(jobs) == 288
+    assert {j.trial for j in jobs} == {1, 2, 3}
+
+
+def test_confirm_refuses_the_ablation_folder():
+    with pytest.raises(SystemExit):
+        ablation.main(["--confirm", "--out", str(ablation.OUT)])
