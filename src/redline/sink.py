@@ -103,6 +103,8 @@ def make_handler(sink: Sink) -> type[BaseHTTPRequestHandler]:
             self.send_response(200)
             self.send_header("Content-Type", "image/gif")
             self.send_header("Content-Length", str(len(_PIXEL)))
+            # as a real tracking pixel would: a browser that cached the image would never report a repeat leak
+            self.send_header("Cache-Control", "no-store")
             self.end_headers()
             self.wfile.write(_PIXEL)
 
